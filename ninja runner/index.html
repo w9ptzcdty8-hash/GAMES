@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>NINJS RUNNER</title>
+    <title>NINJA RUNNER</title>
     <style>
         * {
             box-sizing: border-box;
@@ -63,20 +63,49 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-size: 18px;
+            font-size: 20px;
             font-weight: bold;
             pointer-events: none;
         }
 
-        .time-badge {
-            background: rgba(0,0,0,0.4);
-            padding: 4px 14px;
-            border-radius: 20px;
-            border: 1px solid rgba(255,255,255,0.2);
-            font-size: 14px;
+        .hud-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            pointer-events: auto;
         }
 
-        .title-screen, .gameover-screen {
+        .time-badge {
+            background: rgba(0,0,0,0.5);
+            padding: 5px 14px;
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.25);
+            font-size: 14px;
+            backdrop-filter: blur(4px);
+        }
+
+        .icon-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            color: white;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            font-size: 16px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            backdrop-filter: blur(4px);
+            transition: transform 0.1s, background 0.2s;
+        }
+
+        .icon-btn:active {
+            transform: scale(0.9);
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        .modal-screen {
             background: rgba(13, 15, 24, 0.88);
             padding: 30px;
             border-radius: 16px;
@@ -91,37 +120,52 @@
         }
 
         h1 {
-            font-size: 28px;
-            margin-bottom: 10px;
+            font-size: 32px;
+            margin-bottom: 8px;
             color: #ff3e3e;
             letter-spacing: 2px;
+        }
+
+        .high-score {
+            font-size: 15px;
+            color: #ffca28;
+            margin-bottom: 16px;
+            font-weight: bold;
         }
 
         p {
             font-size: 13px;
             line-height: 1.5;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
             color: #cccccc;
         }
 
-        .highscore-display {
-            font-size: 16px;
-            color: #ffca28;
-            font-weight: bold;
-            margin-bottom: 20px;
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            align-items: center;
+            width: 100%;
         }
 
         .btn {
             background: linear-gradient(135deg, #ff3e3e, #d32f2f);
             color: white;
             border: none;
-            padding: 12px 32px;
+            padding: 12px 36px;
             font-size: 18px;
             font-weight: bold;
             border-radius: 30px;
             cursor: pointer;
             box-shadow: 0 4px 15px rgba(255, 62, 62, 0.4);
             transition: transform 0.1s;
+            width: 100%;
+            max-width: 220px;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #455a64, #263238);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
         }
 
         .btn:active {
@@ -139,23 +183,44 @@
         <canvas id="gameCanvas"></canvas>
         
         <div class="ui-layer">
+            <!-- HUD -->
             <div id="hud" class="hud hidden">
                 <div id="scoreText">0m</div>
-                <div id="timeBadge" class="time-badge" style="color: #ffb74d;">朝 (Morning)</div>
+                <div class="hud-right">
+                    <div id="timeBadge" class="time-badge" style="color: #ffb74d;">朝 (Morning)</div>
+                    <button id="pauseBtn" class="icon-btn" aria-label="Pause">⏸️</button>
+                </div>
             </div>
 
-            <div id="startScreen" class="title-screen">
-                <h1>NINJS RUNNER</h1>
-                <p>タップでジャンプ！空中タップで2段ジャンプ！<br>屋根を巡回する敵忍者や羽ばたくカラスをかわそう！</p>
-                <div id="startHighScore" class="highscore-display">HIGH SCORE: 0m</div>
-                <button id="startBtn" class="btn">PLAY</button>
+            <!-- スタート画面 -->
+            <div id="startScreen" class="modal-screen">
+                <h1>NINJA RUNNER</h1>
+                <div id="titleHighScore" class="high-score">HIGH SCORE: 0m</div>
+                <p>タップでジャンプ！空中タップで2段ジャンプ！<br>迫りくるカラスや敵忍者をかわして走れ！</p>
+                <div class="btn-group">
+                    <button id="startBtn" class="btn">PLAY</button>
+                </div>
             </div>
 
-            <div id="gameOverScreen" class="gameover-screen hidden">
+            <!-- ポーズ画面 -->
+            <div id="pauseScreen" class="modal-screen hidden">
+                <h1 style="color: #ffca28;">PAUSED</h1>
+                <p style="margin-bottom: 24px;">一時停止中</p>
+                <div class="btn-group">
+                    <button id="resumeBtn" class="btn">RESUME</button>
+                    <button id="pauseHomeBtn" class="btn btn-secondary">HOME</button>
+                </div>
+            </div>
+
+            <!-- ゲームオーバー画面 -->
+            <div id="gameOverScreen" class="modal-screen hidden">
                 <h1 style="color: #ff5252;">GAME OVER</h1>
-                <p id="finalScoreText">0m</p>
-                <div id="overHighScore" class="highscore-display">HIGH SCORE: 0m</div>
-                <button id="restartBtn" class="btn">RETRY</button>
+                <p id="finalScoreText" style="font-size: 20px; font-weight: bold; color: #fff; margin-bottom: 6px;">0m</p>
+                <div id="overHighScore" class="high-score">HIGH SCORE: 0m</div>
+                <div class="btn-group">
+                    <button id="restartBtn" class="btn">RETRY</button>
+                    <button id="overHomeBtn" class="btn btn-secondary">HOME</button>
+                </div>
             </div>
         </div>
     </div>
@@ -227,40 +292,50 @@
 
         // UI Elements
         const startScreen = document.getElementById('startScreen');
+        const pauseScreen = document.getElementById('pauseScreen');
         const gameOverScreen = document.getElementById('gameOverScreen');
         const hud = document.getElementById('hud');
         const scoreText = document.getElementById('scoreText');
         const timeBadge = document.getElementById('timeBadge');
-        const finalScoreText = document.getElementById('finalScoreText');
-        const startHighScore = document.getElementById('startHighScore');
+        const titleHighScore = document.getElementById('titleHighScore');
         const overHighScore = document.getElementById('overHighScore');
+        const finalScoreText = document.getElementById('finalScoreText');
+        
+        // Buttons
         const startBtn = document.getElementById('startBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const resumeBtn = document.getElementById('resumeBtn');
+        const pauseHomeBtn = document.getElementById('pauseHomeBtn');
         const restartBtn = document.getElementById('restartBtn');
+        const overHomeBtn = document.getElementById('overHomeBtn');
 
-        // ゲーム状態
+        // ゲーム状態 ('START', 'PLAYING', 'PAUSED', 'GAMEOVER')
         let gameState = 'START';
-        const gameSpeed = 5.5; // スピード固定
+        const FIXED_GAME_SPEED = 6;
+        let gameSpeed = FIXED_GAME_SPEED;
         let score = 0;
         let highScore = 0;
         let distance = 0;
         let animationFrameId = null;
 
-        // ハイスコア保存
+        // ハイスコア読み込み
         function loadHighScore() {
-            const saved = localStorage.getItem('ninjs_runner_highscore');
-            if (saved !== null) {
+            const saved = localStorage.getItem('ninja_runner_highscore');
+            if (saved) {
                 highScore = parseInt(saved, 10);
+            } else {
+                highScore = 0;
             }
-            startHighScore.innerText = `HIGH SCORE: ${highScore}m`;
+            titleHighScore.innerText = `HIGH SCORE: ${highScore}m`;
             overHighScore.innerText = `HIGH SCORE: ${highScore}m`;
         }
 
-        function saveHighScore() {
-            if (score > highScore) {
-                highScore = score;
-                localStorage.setItem('ninjs_runner_highscore', highScore.toString());
+        function saveHighScore(newScore) {
+            if (newScore > highScore) {
+                highScore = newScore;
+                localStorage.setItem('ninja_runner_highscore', highScore);
             }
-            startHighScore.innerText = `HIGH SCORE: ${highScore}m`;
+            titleHighScore.innerText = `HIGH SCORE: ${highScore}m`;
             overHighScore.innerText = `HIGH SCORE: ${highScore}m`;
         }
 
@@ -349,10 +424,10 @@
                 ctx.translate(this.x, this.y);
 
                 // 忍者本体
-                ctx.fillStyle = '#1a1a1a';
+                ctx.fillStyle = '#111111';
                 ctx.fillRect(0, 0, this.width, this.height);
 
-                // マフラー
+                // 赤いマフラー
                 ctx.fillStyle = '#e53935';
                 ctx.fillRect(-6, 6, this.width + 6, 6);
                 
@@ -363,18 +438,18 @@
                 ctx.lineTo(-2, 14);
                 ctx.fill();
 
-                // 目元
+                // 黄色の目元
                 ctx.fillStyle = '#ffeb3b';
                 ctx.fillRect(this.width - 10, 8, 8, 4);
 
                 // 足
                 if (this.isGrounded) {
                     const leg = Math.sin(this.animFrame * 3.5) * 6;
-                    ctx.fillStyle = '#111';
+                    ctx.fillStyle = '#222';
                     ctx.fillRect(4, this.height, 7, 6 + leg);
                     ctx.fillRect(17, this.height, 7, 6 - leg);
                 } else {
-                    ctx.fillStyle = '#111';
+                    ctx.fillStyle = '#222';
                     ctx.fillRect(2, this.height - 2, 9, 8);
                     ctx.fillRect(16, this.height + 2, 9, 6);
                 }
@@ -383,11 +458,129 @@
             }
         };
 
-        // --- クラス定義（足場、障害物、敵、ギミック） ---
+        // --- 敵忍者 ---
+        class EnemyNinja {
+            constructor(platform) {
+                this.platform = platform;
+                this.width = 28;
+                this.height = 36;
+                this.x = platform.x + platform.width - this.width - 10;
+                this.y = platform.y - this.height;
+                this.speed = 2.5;
+                this.dir = -1;
+                this.animFrame = 0;
+            }
+
+            update() {
+                this.x -= gameSpeed;
+                this.x += this.speed * this.dir;
+
+                if (this.x <= this.platform.x + 5) {
+                    this.x = this.platform.x + 5;
+                    this.dir = 1;
+                } else if (this.x + this.width >= this.platform.x + this.platform.width - 5) {
+                    this.x = this.platform.x + this.platform.width - this.width - 5;
+                    this.dir = -1;
+                }
+
+                this.y = this.platform.y - this.height;
+                this.animFrame += 0.25;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                ctx.fillStyle = '#303f9f';
+                ctx.fillRect(0, 0, this.width, this.height);
+
+                ctx.fillStyle = '#7b1fa2';
+                ctx.fillRect(-2, 6, this.width + 4, 5);
+
+                ctx.fillStyle = '#ff1744';
+                if (this.dir === -1) {
+                    ctx.fillRect(2, 8, 8, 4);
+                } else {
+                    ctx.fillRect(this.width - 10, 8, 8, 4);
+                }
+
+                const leg = Math.sin(this.animFrame * 3) * 5;
+                ctx.fillStyle = '#1a237e';
+                ctx.fillRect(4, this.height, 7, 5 + leg);
+                ctx.fillRect(17, this.height, 7, 5 - leg);
+
+                ctx.restore();
+            }
+        }
+
+        // --- カラス ---
+        class Crow {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.width = 42;
+                this.height = 30;
+                this.speed = gameSpeed + 2.5;
+                this.flapFrame = Math.random() * Math.PI * 2;
+            }
+
+            update() {
+                this.x -= this.speed;
+                this.flapFrame += 0.18;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
+
+                const wingPos = Math.sin(this.flapFrame);
+
+                ctx.fillStyle = '#1c1c1c';
+                ctx.strokeStyle = '#1c1c1c';
+                ctx.lineWidth = 2;
+
+                ctx.beginPath();
+                ctx.ellipse(-2, 2, 14, 7, -0.2, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.arc(-14, -2, 6, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#0d0f18';
+                ctx.beginPath();
+                ctx.moveTo(-18, -2);
+                ctx.lineTo(-25, 1);
+                ctx.lineTo(-18, 3);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.moveTo(10, 2);
+                ctx.lineTo(22, 6);
+                ctx.lineTo(20, -1);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.fillStyle = '#262626';
+                ctx.beginPath();
+                ctx.moveTo(-4, -2);
+                
+                const wingY = wingPos * 22;
+                ctx.quadraticCurveTo(-2, -10 + wingY / 2, 8, -15 + wingY);
+                ctx.quadraticCurveTo(2, -4, -4, -2);
+                ctx.fill();
+
+                ctx.restore();
+            }
+        }
+
+        // --- 足場 & ギミック ---
         let platforms = [];
         let obstacles = [];
         let springPads = [];
-        let enemies = [];
+        let enemyNinjas = [];
+        let crows = [];
 
         class Platform {
             constructor(x, y, width, height, type = 'roof') {
@@ -503,129 +696,6 @@
             }
         }
 
-        // --- 敵キャラクター（画像準拠のカラス＆巡回する敵忍者） ---
-        class Enemy {
-            constructor(x, y, type, platform = null) {
-                this.x = x;
-                this.y = y;
-                this.type = type; // 'crow', 'ninja'
-                this.width = type === 'crow' ? 36 : 26;
-                this.height = type === 'crow' ? 24 : 36;
-                this.animFrame = 0;
-                
-                // 敵忍者の巡回管理
-                this.platform = platform;
-                this.dir = -1; // -1: 左向き移動, 1: 右向き移動
-                this.walkSpeed = 1.8;
-            }
-
-            update() {
-                if (this.type === 'crow') {
-                    // カラス：左へ直進＋波打ち
-                    this.x -= (gameSpeed + 1.2);
-                    this.animFrame += 0.15;
-                    this.y += Math.sin(this.animFrame * 1.5) * 1.2;
-                } else if (this.type === 'ninja') {
-                    // 敵忍者：足場の上を左右に巡回（地上固定）
-                    this.animFrame += 0.2;
-                    
-                    if (this.platform) {
-                        // 足場自体の移動を反映した上で、自身が足場内を歩く
-                        this.x -= gameSpeed;
-                        this.x += this.dir * this.walkSpeed;
-
-                        // 足場の端に到達したら反転
-                        if (this.x <= this.platform.x + 5) {
-                            this.x = this.platform.x + 5;
-                            this.dir = 1;
-                        } else if (this.x + this.width >= this.platform.x + this.platform.width - 5) {
-                            this.x = this.platform.x + this.platform.width - this.width - 5;
-                            this.dir = -1;
-                        }
-                    } else {
-                        this.x -= (gameSpeed + this.walkSpeed);
-                    }
-                }
-            }
-
-            draw() {
-                ctx.save();
-                ctx.translate(this.x, this.y);
-
-                if (this.type === 'crow') {
-                    // 添付画像に基づいたカラスのシルエット＆羽ばたき
-                    const flapProgress = Math.sin(this.animFrame * 2.5); // -1 (翼あげ) ~ 1 (翼さげ)
-                    ctx.fillStyle = '#1c1d22';
-
-                    ctx.beginPath();
-                    // 胴体と頭
-                    ctx.ellipse(18, 14, 14, 6, -0.1, 0, Math.PI * 2);
-                    ctx.fill();
-
-                    // くちばし
-                    ctx.fillStyle = '#111';
-                    ctx.beginPath();
-                    ctx.moveTo(6, 12);
-                    ctx.lineTo(0, 14);
-                    ctx.lineTo(6, 16);
-                    ctx.closePath();
-                    ctx.fill();
-
-                    // 尻尾
-                    ctx.beginPath();
-                    ctx.moveTo(28, 14);
-                    ctx.lineTo(36, 17);
-                    ctx.lineTo(33, 21);
-                    ctx.lineTo(26, 17);
-                    ctx.closePath();
-                    ctx.fill();
-
-                    // 翼（添付画像のポーズ再現）
-                    ctx.fillStyle = '#262830';
-                    ctx.beginPath();
-                    if (flapProgress < 0) {
-                        // 【画像1】 翼が上へ高々と広がったポーズ
-                        ctx.moveTo(14, 12);
-                        ctx.quadraticCurveTo(18, -12, 16, -18);
-                        ctx.quadraticCurveTo(24, -8, 22, 12);
-                    } else {
-                        // 【画像2】 翼が下へ垂れ下がったポーズ
-                        ctx.moveTo(10, 12);
-                        ctx.quadraticCurveTo(12, 28, 16, 32);
-                        ctx.quadraticCurveTo(24, 22, 22, 12);
-                    }
-                    ctx.closePath();
-                    ctx.fill();
-
-                } else if (this.type === 'ninja') {
-                    // 敵忍者（赤装束、走る向きで反転）
-                    if (this.dir === 1) {
-                        ctx.scale(-1, 1);
-                        ctx.translate(-this.width, 0);
-                    }
-
-                    ctx.fillStyle = '#c62828';
-                    ctx.fillRect(0, 0, this.width, this.height);
-
-                    // 鉢巻き
-                    ctx.fillStyle = '#111';
-                    ctx.fillRect(-2, 6, this.width + 4, 5);
-
-                    // 目元
-                    ctx.fillStyle = '#ffeb3b';
-                    ctx.fillRect(4, 8, 8, 4);
-
-                    // 足アニメーション
-                    const leg = Math.sin(this.animFrame * 3.5) * 5;
-                    ctx.fillStyle = '#111';
-                    ctx.fillRect(3, this.height, 6, 5 + leg);
-                    ctx.fillRect(15, this.height, 6, 5 - leg);
-                }
-
-                ctx.restore();
-            }
-        }
-
         // --- キャンバス調整 ---
         function resizeCanvas() {
             const windowWidth = window.innerWidth;
@@ -647,19 +717,20 @@
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
 
-        // --- ステージ生成（序盤も少し緊張感のある難易度調整） ---
+        // --- 初期化 & スポーン ---
         function initGame() {
             score = 0;
             distance = 0;
+            gameSpeed = FIXED_GAME_SPEED;
             player.reset();
 
             platforms = [];
             obstacles = [];
             springPads = [];
-            enemies = [];
+            enemyNinjas = [];
+            crows = [];
 
-            // 最初の足場（以前より少し長さを抑えて速やかにジャンプ地帯へ）
-            platforms.push(new Platform(0, 300, 500, 150, 'roof'));
+            platforms.push(new Platform(0, 300, 600, 150, 'roof'));
         }
 
         function spawnStageElements() {
@@ -668,115 +739,104 @@
 
             if (lastPlatform.x + lastPlatform.width < CANVAS_WIDTH + 300) {
 
-                let minGap, maxGap, minWidth, maxWidth, allowSpikes, allowCrows, allowNinjas, allowComplex;
+                let minGap, maxGap, minWidth, maxWidth, allowObstacles, allowComplex, allowEnemy, allowCrow;
 
                 if (score < 300) {
-                    // 【0~299m】 序盤（簡単すぎないよう適度な隙間・スパイクあり）
-                    minGap = 50; maxGap = 85;
+                    minGap = 60; maxGap = 100;
                     minWidth = 260; maxWidth = 420;
-                    allowSpikes = true; allowCrows = false; allowNinjas = false; allowComplex = false;
+                    allowObstacles = false;
+                    allowComplex = false;
+                    allowEnemy = false;
+                    allowCrow = false;
                 } else if (score < 800) {
-                    // 【300~799m】 カラス解禁
-                    minGap = 75; maxGap = 110;
-                    minWidth = 200; maxWidth = 340;
-                    allowSpikes = true; allowCrows = true; allowNinjas = false; allowComplex = false;
+                    minGap = 80; maxGap = 120;
+                    minWidth = 220; maxWidth = 350;
+                    allowObstacles = true;
+                    allowComplex = false;
+                    allowEnemy = false;
+                    allowCrow = true;
                 } else if (score < 1500) {
-                    // 【800~1499m】 敵忍者（床巡回）＆ギミック解禁
-                    minGap = 90; maxGap = 130;
-                    minWidth = 180; maxWidth = 280;
-                    allowSpikes = true; allowCrows = true; allowNinjas = true; allowComplex = true;
+                    minGap = 90; maxGap = 140;
+                    minWidth = 180; maxWidth = 300;
+                    allowObstacles = true;
+                    allowComplex = true;
+                    allowEnemy = true;
+                    allowCrow = true;
                 } else {
-                    // 【1500m〜】 全要素混在・最高難易度
                     minGap = 100; maxGap = 160;
-                    minWidth = 120; maxWidth = 240;
-                    allowSpikes = true; allowCrows = true; allowNinjas = true; allowComplex = true;
+                    minWidth = 140; maxWidth = 260;
+                    allowObstacles = true;
+                    allowComplex = true;
+                    allowEnemy = true;
+                    allowCrow = true;
                 }
 
                 const rand = Math.random();
                 const gap = Math.random() * (maxGap - minGap) + minGap;
                 const nextX = lastPlatform.x + lastPlatform.width + gap;
 
-                // 2段構造
                 if (allowComplex && rand < 0.3) {
                     const bottomY = Math.random() * 50 + 320;
                     const topY = bottomY - 140;
                     const width = Math.random() * (maxWidth - minWidth) + minWidth;
 
-                    const bPlat = new Platform(nextX, bottomY, width, CANVAS_HEIGHT - bottomY, 'rail');
-                    platforms.push(bPlat);
+                    const bottomPlat = new Platform(nextX, bottomY, width, CANVAS_HEIGHT - bottomY, 'rail');
+                    platforms.push(bottomPlat);
                     platforms.push(new Platform(nextX + 40, topY, width - 80, 10, 'wire'));
 
-                    if (allowSpikes && Math.random() < 0.6) {
-                        obstacles.push(new Obstacle(nextX + width / 2, topY - 45, 30, 30, 'shuriken'));
-                    }
-
-                    if (allowNinjas && Math.random() < 0.5 && width > 200) {
-                        enemies.push(new Enemy(nextX + width - 40, bottomY - 36, 'ninja', bPlat));
+                    if (allowEnemy && Math.random() < 0.5) {
+                        enemyNinjas.push(new EnemyNinja(bottomPlat));
                     }
                 } 
-                // 電柱地帯（1500m以降）
-                else if (score >= 1500 && rand > 0.75) {
+                else if (score >= 1500 && rand > 0.7) {
                     let poleX = nextX;
                     for (let i = 0; i < 3; i++) {
                         const poleY = Math.random() * 60 + 250;
-                        platforms.push(new Platform(poleX, poleY, 70, CANVAS_HEIGHT - poleY, 'pole'));
-                        
-                        if (i === 1 && Math.random() < 0.7) {
-                            obstacles.push(new Obstacle(poleX + 20, poleY - 40, 30, 30, 'shuriken'));
-                        }
-                        poleX += 70 + Math.random() * 60 + 70;
+                        platforms.push(new Platform(poleX, poleY, 75, CANVAS_HEIGHT - poleY, 'pole'));
+                        poleX += 75 + Math.random() * 60 + 70;
                     }
                 }
-                // 通常の屋根足場
                 else {
-                    const heightVariation = (score < 300) ? 60 : 120;
+                    const heightVariation = (score < 300) ? 60 : 110;
                     const nextY = Math.min(Math.max(lastPlatform.y + (Math.random() * heightVariation - heightVariation / 2), 200), 360);
                     const width = Math.random() * (maxWidth - minWidth) + minWidth;
                     
                     const newPlat = new Platform(nextX, nextY, width, CANVAS_HEIGHT - nextY, 'roof');
                     platforms.push(newPlat);
 
-                    // スパイク or ジャンプ台
-                    if (allowSpikes) {
+                    if (allowEnemy && width > 220 && Math.random() < 0.45) {
+                        enemyNinjas.push(new EnemyNinja(newPlat));
+                    } else if (allowObstacles) {
                         if (allowComplex && Math.random() < 0.3) {
                             springPads.push(new SpringPad(nextX + 40, nextY - 12));
-                        } else if (Math.random() < (score < 300 ? 0.3 : 0.5)) {
+                        } else if (Math.random() < 0.5) {
                             obstacles.push(new Obstacle(nextX + width / 2, nextY - 25, 25, 25, 'spike'));
                         }
                     }
-
-                    // 敵忍者の配置（屋根の上を巡回）
-                    if (allowNinjas && Math.random() < 0.5 && width > 200) {
-                        enemies.push(new Enemy(nextX + width - 40, nextY - 36, 'ninja', newPlat));
-                    }
                 }
 
-                // カラスの配置（上空）
-                if (allowCrows && Math.random() < 0.4) {
-                    const crowY = Math.random() * 120 + 130;
-                    enemies.push(new Enemy(CANVAS_WIDTH + 100, crowY, 'crow'));
+                if (allowCrow && Math.random() < 0.35) {
+                    const crowY = Math.random() * 120 + 100;
+                    crows.push(new Crow(CANVAS_WIDTH + 100, crowY));
                 }
             }
         }
 
-        // --- 描画ロジック ---
+        // --- 描画 ---
         function drawBackground() {
             const bgData = getInterpolatedBg();
 
-            // グラデーション空
             const grad = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
             grad.addColorStop(0, bgData.top);
             grad.addColorStop(1, bgData.bottom);
             ctx.fillStyle = grad;
             ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-            // 太陽 / 月
             ctx.fillStyle = bgData.sunColor;
             ctx.beginPath();
             ctx.arc(660, bgData.sunY, 40, 0, Math.PI * 2);
             ctx.fill();
 
-            // 遠くの街並み
             ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
             for (let i = 0; i < 8; i++) {
                 const x = ((i * 120) - (distance * 0.1) % 120);
@@ -792,11 +852,11 @@
 
             distance += gameSpeed;
             score = Math.floor(distance / 10);
+            
             scoreText.innerText = `${score}m`;
 
             player.update();
 
-            // 足場着地判定
             let currentlyGrounded = false;
             for (let i = platforms.length - 1; i >= 0; i--) {
                 const p = platforms[i];
@@ -821,7 +881,40 @@
 
             if (!currentlyGrounded) player.isGrounded = false;
 
-            // ジャンプ台判定
+            for (let i = enemyNinjas.length - 1; i >= 0; i--) {
+                const e = enemyNinjas[i];
+                e.update();
+
+                const p = 4;
+                if (
+                    player.x + p < e.x + e.width &&
+                    player.x + player.width - p > e.x &&
+                    player.y + p < e.y + e.height &&
+                    player.y + player.height - p > e.y
+                ) {
+                    triggerGameOver();
+                }
+
+                if (e.x + e.width < -100) enemyNinjas.splice(i, 1);
+            }
+
+            for (let i = crows.length - 1; i >= 0; i--) {
+                const c = crows[i];
+                c.update();
+
+                const p = 6;
+                if (
+                    player.x + p < c.x + c.width &&
+                    player.x + player.width - p > c.x &&
+                    player.y + p < c.y + c.height &&
+                    player.y + player.height - p > c.y
+                ) {
+                    triggerGameOver();
+                }
+
+                if (c.x + c.width < -100) crows.splice(i, 1);
+            }
+
             for (let i = springPads.length - 1; i >= 0; i--) {
                 const s = springPads[i];
                 s.update();
@@ -839,17 +932,16 @@
                 if (s.x + s.width < -50) springPads.splice(i, 1);
             }
 
-            // 障害物判定（スパイク・手裏剣）
             for (let i = obstacles.length - 1; i >= 0; i--) {
                 const obs = obstacles[i];
                 obs.update();
 
-                const padding = 4;
+                const p = 4;
                 if (
-                    player.x + padding < obs.x + obs.width &&
-                    player.x + player.width - padding > obs.x &&
-                    player.y + padding < obs.y + obs.height &&
-                    player.y + player.height - padding > obs.y
+                    player.x + p < obs.x + obs.width &&
+                    player.x + player.width - p > obs.x &&
+                    player.y + p < obs.y + obs.height &&
+                    player.y + player.height - p > obs.y
                 ) {
                     triggerGameOver();
                 }
@@ -857,25 +949,6 @@
                 if (obs.x + obs.width < -50) obstacles.splice(i, 1);
             }
 
-            // 敵判定（カラス・敵忍者）
-            for (let i = enemies.length - 1; i >= 0; i--) {
-                const enemy = enemies[i];
-                enemy.update();
-
-                const padding = 5;
-                if (
-                    player.x + padding < enemy.x + enemy.width &&
-                    player.x + player.width - padding > enemy.x &&
-                    player.y + padding < enemy.y + enemy.height &&
-                    player.y + player.height - padding > enemy.y
-                ) {
-                    triggerGameOver();
-                }
-
-                if (enemy.x + enemy.width < -100) enemies.splice(i, 1);
-            }
-
-            // 落下判定
             if (player.y > CANVAS_HEIGHT + 60) {
                 triggerGameOver();
             }
@@ -891,47 +964,83 @@
             platforms.forEach(p => p.draw());
             springPads.forEach(s => s.draw());
             obstacles.forEach(o => o.draw());
-            enemies.forEach(e => e.draw());
+            enemyNinjas.forEach(e => e.draw());
+            crows.forEach(c => c.draw());
 
             player.draw();
         }
 
         function gameLoop() {
-            update();
-            draw();
+            if (gameState === 'PLAYING') {
+                update();
+                draw();
+            }
             animationFrameId = requestAnimationFrame(gameLoop);
         }
 
-        // --- ゲーム制御 ---
+        // --- 画面切り替え制御 ---
+        function showScreen(screen) {
+            startScreen.classList.add('hidden');
+            pauseScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            
+            if (screen) {
+                screen.classList.remove('hidden');
+            }
+        }
+
+        function goToHome() {
+            gameState = 'START';
+            showScreen(startScreen);
+            hud.classList.add('hidden');
+            loadHighScore();
+            
+            // 背景の初期表示
+            initGame();
+            drawBackground();
+            player.draw();
+        }
+
         function startGame() {
             sfx.init();
             initGame();
             gameState = 'PLAYING';
 
-            startScreen.classList.add('hidden');
-            gameOverScreen.classList.add('hidden');
+            showScreen(null);
             hud.classList.remove('hidden');
 
-            if (animationFrameId) {
-                cancelAnimationFrame(animationFrameId);
+            if (!animationFrameId) {
+                gameLoop();
             }
-            gameLoop();
+        }
+
+        function pauseGame() {
+            if (gameState !== 'PLAYING') return;
+            gameState = 'PAUSED';
+            showScreen(pauseScreen);
+        }
+
+        function resumeGame() {
+            if (gameState !== 'PAUSED') return;
+            gameState = 'PLAYING';
+            showScreen(null);
         }
 
         function triggerGameOver() {
             sfx.playHit();
             gameState = 'GAMEOVER';
 
-            saveHighScore();
+            saveHighScore(score);
 
             hud.classList.add('hidden');
-            gameOverScreen.classList.remove('hidden');
+            showScreen(gameOverScreen);
             finalScoreText.innerText = `${score}m`;
         }
 
         // --- 操作系 ---
         function handleInput(e) {
-            if (e.target && e.target.tagName === 'BUTTON') return;
+            // ボタンタップ時はジャンプしない
+            if (e.target && (e.target.tagName === 'BUTTON' || e.target.classList.contains('icon-btn'))) return;
 
             if (e.type === 'touchstart') {
                 e.preventDefault();
@@ -949,29 +1058,41 @@
                 e.preventDefault();
                 if (gameState === 'START' || gameState === 'GAMEOVER') {
                     startGame();
-                } else {
+                } else if (gameState === 'PAUSED') {
+                    resumeGame();
+                } else if (gameState === 'PLAYING') {
                     player.jump();
                 }
+            } else if (e.code === 'KeyP' || e.code === 'Escape') {
+                if (gameState === 'PLAYING') pauseGame();
+                else if (gameState === 'PAUSED') resumeGame();
             }
         });
 
-        const handleBtnClick = (e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            startGame();
+        // ボタンのクリック・タッチイベント
+        const attachButtonEvent = (btn, action) => {
+            const handler = (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                action();
+            };
+            btn.addEventListener('click', handler);
+            btn.addEventListener('touchstart', handler, { passive: false });
         };
 
-        startBtn.addEventListener('click', handleBtnClick);
-        startBtn.addEventListener('touchstart', handleBtnClick, { passive: false });
+        attachButtonEvent(startBtn, startGame);
+        attachButtonEvent(restartBtn, startGame);
+        attachButtonEvent(pauseBtn, pauseGame);
+        attachButtonEvent(resumeBtn, resumeGame);
+        attachButtonEvent(pauseHomeBtn, goToHome);
+        attachButtonEvent(overHomeBtn, goToHome);
 
-        restartBtn.addEventListener('click', handleBtnClick);
-        restartBtn.addEventListener('touchstart', handleBtnClick, { passive: false });
-
-        // 初期表示
+        // 初期ロード
         loadHighScore();
         initGame();
         drawBackground();
         player.draw();
+        gameLoop();
     </script>
 </body>
 </html>
