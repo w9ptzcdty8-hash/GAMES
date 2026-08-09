@@ -21,14 +21,86 @@
             background-color: #0d0f18;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             display: flex;
-            justify-content: center;
+            flex-direction: column;
+            justify-content: flex-start;
             align-items: center;
         }
 
+        /* 画面最上部：広告領域 (AdMax対応) */
+        .ad-container {
+            width: 100%;
+            height: 60px;
+            min-height: 60px;
+            background-color: #000000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-shrink: 0;
+            z-index: 100;
+            overflow: hidden;
+        }
+
+        /* アプリ全体のコンテナ */
+        #main-wrapper {
+            width: 100%;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            padding: 0;
+        }
+
+        /* プレイ画面の直上コントロールバー (スコア・ポーズ) */
+        .top-control-bar {
+            width: 100%;
+            max-width: 800px;
+            height: 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 16px;
+            background: transparent;
+            color: #ffffff;
+            font-weight: bold;
+            font-size: 20px;
+            z-index: 10;
+        }
+
+        .hud-left {
+            display: flex;
+            align-items: center;
+            color: #ffffff;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+        }
+
+        .icon-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            border-radius: 8px;
+            padding: 4px 12px;
+            font-size: 15px;
+            font-weight: bold;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            backdrop-filter: blur(4px);
+            transition: transform 0.1s, background 0.2s;
+        }
+
+        .icon-btn:active {
+            transform: scale(0.92);
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        /* ゲーム表示枠 */
         #game-container {
             position: relative;
             width: 100%;
-            height: 100%;
+            max-width: 800px;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -36,8 +108,10 @@
 
         canvas {
             background-color: #1a1c29;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
             touch-action: none;
+            display: block;
+            border: none;
+            outline: none;
         }
 
         .ui-layer {
@@ -55,72 +129,22 @@
             text-shadow: 0 2px 4px rgba(0,0,0,0.8);
         }
 
-        .hud {
-            position: absolute;
-            top: 15px;
-            left: 20px;
-            right: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 20px;
-            font-weight: bold;
-            pointer-events: none;
-        }
-
-        .hud-right {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            pointer-events: auto;
-        }
-
-        .time-badge {
-            background: rgba(0,0,0,0.5);
-            padding: 5px 14px;
-            border-radius: 20px;
-            border: 1px solid rgba(255,255,255,0.25);
-            font-size: 14px;
-            backdrop-filter: blur(4px);
-        }
-
-        .icon-btn {
-            background: rgba(255, 255, 255, 0.2);
-            border: 1px solid rgba(255, 255, 255, 0.4);
-            color: white;
-            border-radius: 50%;
-            width: 36px;
-            height: 36px;
-            font-size: 16px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            cursor: pointer;
-            backdrop-filter: blur(4px);
-            transition: transform 0.1s, background 0.2s;
-        }
-
-        .icon-btn:active {
-            transform: scale(0.9);
-            background: rgba(255, 255, 255, 0.4);
-        }
-
         .modal-screen {
-            background: rgba(13, 15, 24, 0.88);
-            padding: 30px;
+            background: rgba(13, 15, 24, 0.92);
+            padding: 28px;
             border-radius: 16px;
             text-align: center;
             pointer-events: auto;
             backdrop-filter: blur(8px);
             border: 1px solid rgba(255, 255, 255, 0.15);
             max-width: 90%;
-            width: 340px;
-            z-index: 10;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            width: 320px;
+            z-index: 20;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
         }
 
         h1 {
-            font-size: 32px;
+            font-size: 30px;
             margin-bottom: 8px;
             color: #ff3e3e;
             letter-spacing: 2px;
@@ -179,47 +203,58 @@
 </head>
 <body>
 
-    <div id="game-container">
-        <canvas id="gameCanvas"></canvas>
-        
-        <div class="ui-layer">
-            <!-- HUD -->
-            <div id="hud" class="hud hidden">
-                <div id="scoreText">0m</div>
-                <div class="hud-right">
-                    <div id="timeBadge" class="time-badge" style="color: #ffb74d;">朝 (Morning)</div>
-                    <button id="pauseBtn" class="icon-btn" aria-label="Pause">⏸️</button>
-                </div>
-            </div>
+    <!-- 画面最上部：広告表示領域 (AdMax) -->
+    <div class="ad-container" id="adBox">
+        <!-- admax -->
+        <script src="https://adm.shinobi.jp/s/8a495d941206bf0c34aff9559f8d2cea"></script>
+        <!-- admax -->
+    </div>
 
-            <!-- スタート画面 -->
-            <div id="startScreen" class="modal-screen">
-                <h1>NINJA RUNNER</h1>
-                <div id="titleHighScore" class="high-score">HIGH SCORE: 0m</div>
-                <p>タップでジャンプ！空中タップで2段ジャンプ！<br>迫りくるカラスや敵忍者をかわして走れ！</p>
-                <div class="btn-group">
-                    <button id="startBtn" class="btn">PLAY</button>
-                </div>
+    <div id="main-wrapper">
+        <!-- プレイ画面の直上バー (スコア＆ポーズボタン) -->
+        <div id="topControlBar" class="top-control-bar">
+            <div class="hud-left">
+                <span id="scoreText">0m</span>
             </div>
-
-            <!-- ポーズ画面 -->
-            <div id="pauseScreen" class="modal-screen hidden">
-                <h1 style="color: #ffca28;">PAUSED</h1>
-                <p style="margin-bottom: 24px;">一時停止中</p>
-                <div class="btn-group">
-                    <button id="resumeBtn" class="btn">RESUME</button>
-                    <button id="pauseHomeBtn" class="btn btn-secondary">HOME</button>
-                </div>
+            <div>
+                <button id="pauseBtn" class="icon-btn" aria-label="Pause">⏸️ ポーズ</button>
             </div>
+        </div>
 
-            <!-- ゲームオーバー画面 -->
-            <div id="gameOverScreen" class="modal-screen hidden">
-                <h1 style="color: #ff5252;">GAME OVER</h1>
-                <p id="finalScoreText" style="font-size: 20px; font-weight: bold; color: #fff; margin-bottom: 6px;">0m</p>
-                <div id="overHighScore" class="high-score">HIGH SCORE: 0m</div>
-                <div class="btn-group">
-                    <button id="restartBtn" class="btn">RETRY</button>
-                    <button id="overHomeBtn" class="btn btn-secondary">HOME</button>
+        <!-- ゲーム画面（Canvas） -->
+        <div id="game-container">
+            <canvas id="gameCanvas"></canvas>
+            
+            <div class="ui-layer">
+                <!-- スタート画面 -->
+                <div id="startScreen" class="modal-screen">
+                    <h1>NINJA RUNNER</h1>
+                    <div id="titleHighScore" class="high-score">HIGH SCORE: 0m</div>
+                    <p>タップでジャンプ！空中タップで2段ジャンプ！<br>迫りくるカラスや敵忍者をかわして走れ！</p>
+                    <div class="btn-group">
+                        <button id="startBtn" class="btn">PLAY</button>
+                    </div>
+                </div>
+
+                <!-- ポーズ画面 -->
+                <div id="pauseScreen" class="modal-screen hidden">
+                    <h1 style="color: #ffca28;">PAUSED</h1>
+                    <p style="margin-bottom: 24px;">一時停止中</p>
+                    <div class="btn-group">
+                        <button id="resumeBtn" class="btn">RESUME</button>
+                        <button id="pauseHomeBtn" class="btn btn-secondary">HOME</button>
+                    </div>
+                </div>
+
+                <!-- ゲームオーバー画面 -->
+                <div id="gameOverScreen" class="modal-screen hidden">
+                    <h1 style="color: #ff5252;">GAME OVER</h1>
+                    <p id="finalScoreText" style="font-size: 22px; font-weight: bold; color: #fff; margin-bottom: 6px;">0m</p>
+                    <div id="overHighScore" class="high-score">HIGH SCORE: 0m</div>
+                    <div class="btn-group">
+                        <button id="restartBtn" class="btn">RETRY</button>
+                        <button id="overHomeBtn" class="btn btn-secondary">HOME</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -294,9 +329,8 @@
         const startScreen = document.getElementById('startScreen');
         const pauseScreen = document.getElementById('pauseScreen');
         const gameOverScreen = document.getElementById('gameOverScreen');
-        const hud = document.getElementById('hud');
+        const topControlBar = document.getElementById('topControlBar');
         const scoreText = document.getElementById('scoreText');
-        const timeBadge = document.getElementById('timeBadge');
         const titleHighScore = document.getElementById('titleHighScore');
         const overHighScore = document.getElementById('overHighScore');
         const finalScoreText = document.getElementById('finalScoreText');
@@ -320,10 +354,10 @@
 
         // ハイスコア読み込み
         function loadHighScore() {
-            const saved = localStorage.getItem('ninja_runner_highscore');
-            if (saved) {
-                highScore = parseInt(saved, 10);
-            } else {
+            try {
+                const saved = localStorage.getItem('ninja_runner_highscore');
+                highScore = saved ? parseInt(saved, 10) : 0;
+            } catch (e) {
                 highScore = 0;
             }
             titleHighScore.innerText = `HIGH SCORE: ${highScore}m`;
@@ -333,7 +367,9 @@
         function saveHighScore(newScore) {
             if (newScore > highScore) {
                 highScore = newScore;
-                localStorage.setItem('ninja_runner_highscore', highScore);
+                try {
+                    localStorage.setItem('ninja_runner_highscore', highScore);
+                } catch (e) {}
             }
             titleHighScore.innerText = `HIGH SCORE: ${highScore}m`;
             overHighScore.innerText = `HIGH SCORE: ${highScore}m`;
@@ -342,10 +378,10 @@
         // --- 時間帯・背景管理 ---
         const SCORE_PER_PHASE = 1500;
         const TIME_PHASES = [
-            { name: "朝 (Morning)", top: [255, 140, 100], bottom: [255, 210, 150], sunColor: "#fff3e0", sunY: 180 },
-            { name: "昼 (Day)",     top: [70, 160, 240],  bottom: [180, 220, 255], sunColor: "#fffde7", sunY: 60 },
-            { name: "夕 (Sunset)",  top: [180, 50, 90],   bottom: [255, 120, 60],  sunColor: "#ff7043", sunY: 220 },
-            { name: "夜 (Night)",   top: [10, 15, 30],    bottom: [30, 35, 65],    sunColor: "#eceff1", sunY: 80 }
+            { top: [255, 140, 100], bottom: [255, 210, 150], sunColor: "#fff3e0", sunY: 180 },
+            { top: [70, 160, 240],  bottom: [180, 220, 255], sunColor: "#fffde7", sunY: 60 },
+            { top: [180, 50, 90],   bottom: [255, 120, 60],  sunColor: "#ff7043", sunY: 220 },
+            { top: [10, 15, 30],    bottom: [30, 35, 65],    sunColor: "#eceff1", sunY: 80 }
         ];
 
         function getInterpolatedBg() {
@@ -373,8 +409,7 @@
                 top: `rgb(${rTop},${gTop},${bTop})`,
                 bottom: `rgb(${rBot},${gBot},${bBot})`,
                 sunColor: c1.sunColor,
-                sunY: sunY,
-                phaseName: c1.name
+                sunY: sunY
             };
         }
 
@@ -423,11 +458,9 @@
                 ctx.save();
                 ctx.translate(this.x, this.y);
 
-                // 忍者本体
                 ctx.fillStyle = '#111111';
                 ctx.fillRect(0, 0, this.width, this.height);
 
-                // 赤いマフラー
                 ctx.fillStyle = '#e53935';
                 ctx.fillRect(-6, 6, this.width + 6, 6);
                 
@@ -438,11 +471,9 @@
                 ctx.lineTo(-2, 14);
                 ctx.fill();
 
-                // 黄色の目元
                 ctx.fillStyle = '#ffeb3b';
                 ctx.fillRect(this.width - 10, 8, 8, 4);
 
-                // 足
                 if (this.isGrounded) {
                     const leg = Math.sin(this.animFrame * 3.5) * 6;
                     ctx.fillStyle = '#222';
@@ -696,26 +727,31 @@
             }
         }
 
-        // --- キャンバス調整 ---
+        // --- キャンバス調整 (アスペクト比維持) ---
         function resizeCanvas() {
-            const windowWidth = window.innerWidth;
-            const windowHeight = window.innerHeight;
-            let w = windowWidth;
-            let h = windowWidth * (9 / 16);
+            const wrapper = document.getElementById('main-wrapper');
+            if (!wrapper) return;
 
-            if (h > windowHeight) {
-                h = windowHeight;
-                w = windowHeight * (16 / 9);
+            const availWidth = wrapper.clientWidth;
+            const availHeight = wrapper.clientHeight - 40;
+            
+            let w = availWidth;
+            let h = availWidth * (9 / 16);
+
+            if (h > availHeight) {
+                h = availHeight;
+                w = availHeight * (16 / 9);
             }
 
             canvas.style.width = `${w}px`;
             canvas.style.height = `${h}px`;
+            topControlBar.style.width = `${w}px`;
+
             canvas.width = CANVAS_WIDTH;
             canvas.height = CANVAS_HEIGHT;
         }
 
         window.addEventListener('resize', resizeCanvas);
-        resizeCanvas();
 
         // --- 初期化 & スポーン ---
         function initGame() {
@@ -842,8 +878,6 @@
                 const x = ((i * 120) - (distance * 0.1) % 120);
                 ctx.fillRect(x, CANVAS_HEIGHT - 120, 80, 120);
             }
-
-            timeBadge.innerText = bgData.phaseName;
         }
 
         // --- ループ＆更新 ---
@@ -992,10 +1026,8 @@
         function goToHome() {
             gameState = 'START';
             showScreen(startScreen);
-            hud.classList.add('hidden');
             loadHighScore();
             
-            // 背景の初期表示
             initGame();
             drawBackground();
             player.draw();
@@ -1007,7 +1039,6 @@
             gameState = 'PLAYING';
 
             showScreen(null);
-            hud.classList.remove('hidden');
 
             if (!animationFrameId) {
                 gameLoop();
@@ -1032,14 +1063,12 @@
 
             saveHighScore(score);
 
-            hud.classList.add('hidden');
             showScreen(gameOverScreen);
             finalScoreText.innerText = `${score}m`;
         }
 
         // --- 操作系 ---
         function handleInput(e) {
-            // ボタンタップ時はジャンプしない
             if (e.target && (e.target.tagName === 'BUTTON' || e.target.classList.contains('icon-btn'))) return;
 
             if (e.type === 'touchstart') {
@@ -1069,7 +1098,6 @@
             }
         });
 
-        // ボタンのクリック・タッチイベント
         const attachButtonEvent = (btn, action) => {
             const handler = (e) => {
                 e.stopPropagation();
@@ -1088,11 +1116,14 @@
         attachButtonEvent(overHomeBtn, goToHome);
 
         // 初期ロード
-        loadHighScore();
-        initGame();
-        drawBackground();
-        player.draw();
-        gameLoop();
+        setTimeout(() => {
+            resizeCanvas();
+            loadHighScore();
+            initGame();
+            drawBackground();
+            player.draw();
+            gameLoop();
+        }, 50);
     </script>
 </body>
 </html>
