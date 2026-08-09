@@ -65,10 +65,10 @@
             background: rgba(255, 255, 255, 0.2);
             border: none;
             color: white;
-            border-radius: 8px;
-            padding: 4px 12px;
-            font-size: 15px;
-            font-weight: bold;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            font-size: 16px;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -1012,6 +1012,23 @@
             animationFrameId = requestAnimationFrame(gameLoop);
         }
 
+        // --- ブラウザバック（戻るボタン）制御 ---
+        function pushGameStateHistory() {
+            try {
+                history.pushState({ inGame: true }, '', location.href);
+            } catch (e) {}
+        }
+
+        window.addEventListener('popstate', (e) => {
+            if (gameState === 'PLAYING') {
+                pauseGame();
+                pushGameStateHistory();
+            } else if (gameState === 'PAUSED' || gameState === 'GAMEOVER') {
+                goToHome();
+                pushGameStateHistory();
+            }
+        });
+
         // --- 画面切り替え制御 ---
         function showScreen(screen) {
             startScreen.classList.add('hidden');
@@ -1038,6 +1055,7 @@
             initGame();
             gameState = 'PLAYING';
 
+            pushGameStateHistory();
             showScreen(null);
 
             if (!animationFrameId) {
@@ -1054,6 +1072,7 @@
         function resumeGame() {
             if (gameState !== 'PAUSED') return;
             gameState = 'PLAYING';
+            pushGameStateHistory();
             showScreen(null);
         }
 
@@ -1117,6 +1136,7 @@
 
         // 初期ロード
         setTimeout(() => {
+            pushGameStateHistory();
             resizeCanvas();
             loadHighScore();
             initGame();
