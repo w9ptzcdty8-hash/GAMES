@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>NINJS RUNNER</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0d0f18;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            background-color: #1a1c29;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+            touch-action: none;
+        }
+
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #ffffff;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+        }
+
+        .hud {
+            position: absolute;
+            top: 15px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 18px;
+            font-weight: bold;
+            pointer-events: none;
+        }
+
+        .time-badge {
+            background: rgba(0,0,0,0.4);
+            padding: 4px 14px;
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.2);
+            font-size: 14px;
+        }
+
+        .title-screen, .gameover-screen {
+            background: rgba(13, 15, 24, 0.88);
+            padding: 30px;
+            border-radius: 16px;
+            text-align: center;
+            pointer-events: auto;
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            max-width: 90%;
+            width: 340px;
+            z-index: 10;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            color: #ff3e3e;
+            letter-spacing: 2px;
+        }
+
+        p {
+            font-size: 13px;
+            line-height: 1.5;
+            margin-bottom: 15px;
+            color: #cccccc;
+        }
+
+        .highscore-display {
+            font-size: 16px;
+            color: #ffca28;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #ff3e3e, #d32f2f);
+            color: white;
+            border: none;
+            padding: 12px 32px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(255, 62, 62, 0.4);
+            transition: transform 0.1s;
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div class="ui-layer">
+            <div id="hud" class="hud hidden">
+                <div id="scoreText">0m</div>
+                <div id="timeBadge" class="time-badge" style="color: #ffb74d;">朝 (Morning)</div>
+            </div>
+
+            <div id="startScreen" class="title-screen">
+                <h1>NINJS RUNNER</h1>
+                <p>タップでジャンプ！空中タップで2段ジャンプ！<br>屋根を巡回する敵忍者や羽ばたくカラスをかわそう！</p>
+                <div id="startHighScore" class="highscore-display">HIGH SCORE: 0m</div>
+                <button id="startBtn" class="btn">PLAY</button>
+            </div>
+
+            <div id="gameOverScreen" class="gameover-screen hidden">
+                <h1 style="color: #ff5252;">GAME OVER</h1>
+                <p id="finalScoreText">0m</p>
+                <div id="overHighScore" class="highscore-display">HIGH SCORE: 0m</div>
+                <button id="restartBtn" class="btn">RETRY</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Web Audio API (効果音) ---
+        class SoundFX {
+            constructor() {
+                this.ctx = null;
+            }
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+            playJump(pitch = 1) {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(150 * pitch, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(450 * pitch, this.ctx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.15);
+            }
+            playBounce() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(200, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(800, this.ctx.currentTime + 0.25);
+                gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.25);
+            }
+            playHit() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(120, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(30, this.ctx.currentTime + 0.3);
+                gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.3);
+            }
+        }
+        const sfx = new SoundFX();
+
+        // --- 定数 ---
+        const CANVAS_WIDTH = 800;
+        const CANVAS_HEIGHT = 450;
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // UI Elements
+        const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const hud = document.getElementById('hud');
+        const scoreText = document.getElementById('scoreText');
+        const timeBadge = document.getElementById('timeBadge');
+        const finalScoreText = document.getElementById('finalScoreText');
+        const startHighScore = document.getElementById('startHighScore');
+        const overHighScore = document.getElementById('overHighScore');
+        const startBtn = document.getElementById('startBtn');
+        const restartBtn = document.getElementById('restartBtn');
+
+        // ゲーム状態
+        let gameState = 'START';
+        const gameSpeed = 5.5; // スピード固定
+        let score = 0;
+        let highScore = 0;
+        let distance = 0;
+        let animationFrameId = null;
+
+        // ハイスコア保存
+        function loadHighScore() {
+            const saved = localStorage.getItem('ninjs_runner_highscore');
+            if (saved !== null) {
+                highScore = parseInt(saved, 10);
+            }
+            startHighScore.innerText = `HIGH SCORE: ${highScore}m`;
+            overHighScore.innerText = `HIGH SCORE: ${highScore}m`;
+        }
+
+        function saveHighScore() {
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('ninjs_runner_highscore', highScore.toString());
+            }
+            startHighScore.innerText = `HIGH SCORE: ${highScore}m`;
+            overHighScore.innerText = `HIGH SCORE: ${highScore}m`;
+        }
+
+        // --- 時間帯・背景管理 ---
+        const SCORE_PER_PHASE = 1500;
+        const TIME_PHASES = [
+            { name: "朝 (Morning)", top: [255, 140, 100], bottom: [255, 210, 150], sunColor: "#fff3e0", sunY: 180 },
+            { name: "昼 (Day)",     top: [70, 160, 240],  bottom: [180, 220, 255], sunColor: "#fffde7", sunY: 60 },
+            { name: "夕 (Sunset)",  top: [180, 50, 90],   bottom: [255, 120, 60],  sunColor: "#ff7043", sunY: 220 },
+            { name: "夜 (Night)",   top: [10, 15, 30],    bottom: [30, 35, 65],    sunColor: "#eceff1", sunY: 80 }
+        ];
+
+        function getInterpolatedBg() {
+            const totalCycleScore = TIME_PHASES.length * SCORE_PER_PHASE;
+            const currentScoreInCycle = score % totalCycleScore;
+
+            const currentIndex = Math.floor(currentScoreInCycle / SCORE_PER_PHASE);
+            const nextIndex = (currentIndex + 1) % TIME_PHASES.length;
+            const progress = (currentScoreInCycle % SCORE_PER_PHASE) / SCORE_PER_PHASE;
+
+            const c1 = TIME_PHASES[currentIndex];
+            const c2 = TIME_PHASES[nextIndex];
+
+            const rTop = Math.round(c1.top[0] + (c2.top[0] - c1.top[0]) * progress);
+            const gTop = Math.round(c1.top[1] + (c2.top[1] - c1.top[1]) * progress);
+            const bTop = Math.round(c1.top[2] + (c2.top[2] - c1.top[2]) * progress);
+
+            const rBot = Math.round(c1.bottom[0] + (c2.bottom[0] - c1.bottom[0]) * progress);
+            const gBot = Math.round(c1.bottom[1] + (c2.bottom[1] - c1.bottom[1]) * progress);
+            const bBot = Math.round(c1.bottom[2] + (c2.bottom[2] - c1.bottom[2]) * progress);
+
+            const sunY = c1.sunY + (c2.sunY - c1.sunY) * progress;
+
+            return {
+                top: `rgb(${rTop},${gTop},${bTop})`,
+                bottom: `rgb(${rBot},${gBot},${bBot})`,
+                sunColor: c1.sunColor,
+                sunY: sunY,
+                phaseName: c1.name
+            };
+        }
+
+        // --- 忍者 (プレイヤー) ---
+        const player = {
+            x: 100,
+            y: 0,
+            width: 28,
+            height: 38,
+            velocityY: 0,
+            gravity: 0.65,
+            jumpForce: -13,
+            isGrounded: false,
+            jumpCount: 0,
+            maxJumps: 2,
+            animFrame: 0,
+
+            reset() {
+                this.y = 150;
+                this.velocityY = 0;
+                this.isGrounded = false;
+                this.jumpCount = 0;
+            },
+
+            jump(force = this.jumpForce, isBounce = false) {
+                if (isBounce) {
+                    this.velocityY = force;
+                    this.jumpCount = 1;
+                    this.isGrounded = false;
+                    sfx.playBounce();
+                } else if (this.jumpCount < this.maxJumps) {
+                    this.velocityY = force;
+                    this.jumpCount++;
+                    this.isGrounded = false;
+                    sfx.playJump(this.jumpCount === 2 ? 1.3 : 1.0);
+                }
+            },
+
+            update() {
+                this.velocityY += this.gravity;
+                this.y += this.velocityY;
+                this.animFrame += 0.2;
+            },
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                // 忍者本体
+                ctx.fillStyle = '#1a1a1a';
+                ctx.fillRect(0, 0, this.width, this.height);
+
+                // マフラー
+                ctx.fillStyle = '#e53935';
+                ctx.fillRect(-6, 6, this.width + 6, 6);
+                
+                const scarfWave = Math.sin(this.animFrame * 2.5) * 8;
+                ctx.beginPath();
+                ctx.moveTo(-2, 8);
+                ctx.lineTo(-18, 10 + scarfWave);
+                ctx.lineTo(-2, 14);
+                ctx.fill();
+
+                // 目元
+                ctx.fillStyle = '#ffeb3b';
+                ctx.fillRect(this.width - 10, 8, 8, 4);
+
+                // 足
+                if (this.isGrounded) {
+                    const leg = Math.sin(this.animFrame * 3.5) * 6;
+                    ctx.fillStyle = '#111';
+                    ctx.fillRect(4, this.height, 7, 6 + leg);
+                    ctx.fillRect(17, this.height, 7, 6 - leg);
+                } else {
+                    ctx.fillStyle = '#111';
+                    ctx.fillRect(2, this.height - 2, 9, 8);
+                    ctx.fillRect(16, this.height + 2, 9, 6);
+                }
+
+                ctx.restore();
+            }
+        };
+
+        // --- クラス定義（足場、障害物、敵、ギミック） ---
+        let platforms = [];
+        let obstacles = [];
+        let springPads = [];
+        let enemies = [];
+
+        class Platform {
+            constructor(x, y, width, height, type = 'roof') {
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = height;
+                this.type = type;
+            }
+
+            update() {
+                this.x -= gameSpeed;
+            }
+
+            draw() {
+                if (this.type === 'wire') {
+                    ctx.strokeStyle = '#333';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y + 2);
+                    ctx.lineTo(this.x + this.width, this.y + 2);
+                    ctx.stroke();
+                    return;
+                }
+
+                if (this.type === 'rail') {
+                    ctx.fillStyle = '#cfd8dc';
+                    ctx.fillRect(this.x, this.y, this.width, 10);
+                    ctx.fillStyle = '#90a4ae';
+                    ctx.fillRect(this.x, this.y + 10, this.width, this.height);
+                    return;
+                }
+
+                ctx.fillStyle = this.type === 'pole' ? '#3e2723' : '#263238';
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+
+                ctx.fillStyle = 'rgba(255,255,255,0.2)';
+                ctx.fillRect(this.x, this.y, this.width, 3);
+
+                if (this.type === 'roof') {
+                    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+                    for (let i = 0; i < this.width; i += 24) {
+                        ctx.fillRect(this.x + i, this.y + 3, 2, this.height);
+                    }
+                }
+            }
+        }
+
+        class SpringPad {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.width = 30;
+                this.height = 12;
+            }
+
+            update() {
+                this.x -= gameSpeed;
+            }
+
+            draw() {
+                ctx.fillStyle = '#4caf50';
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                ctx.fillStyle = '#81c784';
+                ctx.fillRect(this.x + 3, this.y + 2, this.width - 6, 3);
+            }
+        }
+
+        class Obstacle {
+            constructor(x, y, width, height, type = 'spike') {
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = height;
+                this.type = type;
+                this.rotation = 0;
+            }
+
+            update() {
+                this.x -= gameSpeed;
+                if (this.type === 'shuriken') {
+                    this.rotation += 0.2;
+                }
+            }
+
+            draw() {
+                if (this.type === 'spike') {
+                    ctx.fillStyle = '#ff3d00';
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y + this.height);
+                    ctx.lineTo(this.x + this.width / 2, this.y);
+                    ctx.lineTo(this.x + this.width, this.y + this.height);
+                    ctx.closePath();
+                    ctx.fill();
+                } else if (this.type === 'shuriken') {
+                    ctx.save();
+                    ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
+                    ctx.rotate(this.rotation);
+                    ctx.fillStyle = '#00e5ff';
+                    
+                    for (let i = 0; i < 4; i++) {
+                        ctx.rotate(Math.PI / 2);
+                        ctx.beginPath();
+                        ctx.moveTo(0, 0);
+                        ctx.lineTo(-5, -15);
+                        ctx.lineTo(0, -22);
+                        ctx.lineTo(5, -15);
+                        ctx.closePath();
+                        ctx.fill();
+                    }
+                    ctx.restore();
+                }
+            }
+        }
+
+        // --- 敵キャラクター（画像準拠のカラス＆巡回する敵忍者） ---
+        class Enemy {
+            constructor(x, y, type, platform = null) {
+                this.x = x;
+                this.y = y;
+                this.type = type; // 'crow', 'ninja'
+                this.width = type === 'crow' ? 36 : 26;
+                this.height = type === 'crow' ? 24 : 36;
+                this.animFrame = 0;
+                
+                // 敵忍者の巡回管理
+                this.platform = platform;
+                this.dir = -1; // -1: 左向き移動, 1: 右向き移動
+                this.walkSpeed = 1.8;
+            }
+
+            update() {
+                if (this.type === 'crow') {
+                    // カラス：左へ直進＋波打ち
+                    this.x -= (gameSpeed + 1.2);
+                    this.animFrame += 0.15;
+                    this.y += Math.sin(this.animFrame * 1.5) * 1.2;
+                } else if (this.type === 'ninja') {
+                    // 敵忍者：足場の上を左右に巡回（地上固定）
+                    this.animFrame += 0.2;
+                    
+                    if (this.platform) {
+                        // 足場自体の移動を反映した上で、自身が足場内を歩く
+                        this.x -= gameSpeed;
+                        this.x += this.dir * this.walkSpeed;
+
+                        // 足場の端に到達したら反転
+                        if (this.x <= this.platform.x + 5) {
+                            this.x = this.platform.x + 5;
+                            this.dir = 1;
+                        } else if (this.x + this.width >= this.platform.x + this.platform.width - 5) {
+                            this.x = this.platform.x + this.platform.width - this.width - 5;
+                            this.dir = -1;
+                        }
+                    } else {
+                        this.x -= (gameSpeed + this.walkSpeed);
+                    }
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                if (this.type === 'crow') {
+                    // 添付画像に基づいたカラスのシルエット＆羽ばたき
+                    const flapProgress = Math.sin(this.animFrame * 2.5); // -1 (翼あげ) ~ 1 (翼さげ)
+                    ctx.fillStyle = '#1c1d22';
+
+                    ctx.beginPath();
+                    // 胴体と頭
+                    ctx.ellipse(18, 14, 14, 6, -0.1, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // くちばし
+                    ctx.fillStyle = '#111';
+                    ctx.beginPath();
+                    ctx.moveTo(6, 12);
+                    ctx.lineTo(0, 14);
+                    ctx.lineTo(6, 16);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // 尻尾
+                    ctx.beginPath();
+                    ctx.moveTo(28, 14);
+                    ctx.lineTo(36, 17);
+                    ctx.lineTo(33, 21);
+                    ctx.lineTo(26, 17);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // 翼（添付画像のポーズ再現）
+                    ctx.fillStyle = '#262830';
+                    ctx.beginPath();
+                    if (flapProgress < 0) {
+                        // 【画像1】 翼が上へ高々と広がったポーズ
+                        ctx.moveTo(14, 12);
+                        ctx.quadraticCurveTo(18, -12, 16, -18);
+                        ctx.quadraticCurveTo(24, -8, 22, 12);
+                    } else {
+                        // 【画像2】 翼が下へ垂れ下がったポーズ
+                        ctx.moveTo(10, 12);
+                        ctx.quadraticCurveTo(12, 28, 16, 32);
+                        ctx.quadraticCurveTo(24, 22, 22, 12);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+
+                } else if (this.type === 'ninja') {
+                    // 敵忍者（赤装束、走る向きで反転）
+                    if (this.dir === 1) {
+                        ctx.scale(-1, 1);
+                        ctx.translate(-this.width, 0);
+                    }
+
+                    ctx.fillStyle = '#c62828';
+                    ctx.fillRect(0, 0, this.width, this.height);
+
+                    // 鉢巻き
+                    ctx.fillStyle = '#111';
+                    ctx.fillRect(-2, 6, this.width + 4, 5);
+
+                    // 目元
+                    ctx.fillStyle = '#ffeb3b';
+                    ctx.fillRect(4, 8, 8, 4);
+
+                    // 足アニメーション
+                    const leg = Math.sin(this.animFrame * 3.5) * 5;
+                    ctx.fillStyle = '#111';
+                    ctx.fillRect(3, this.height, 6, 5 + leg);
+                    ctx.fillRect(15, this.height, 6, 5 - leg);
+                }
+
+                ctx.restore();
+            }
+        }
+
+        // --- キャンバス調整 ---
+        function resizeCanvas() {
+            const windowWidth = window.innerWidth;
+            const windowHeight = window.innerHeight;
+            let w = windowWidth;
+            let h = windowWidth * (9 / 16);
+
+            if (h > windowHeight) {
+                h = windowHeight;
+                w = windowHeight * (16 / 9);
+            }
+
+            canvas.style.width = `${w}px`;
+            canvas.style.height = `${h}px`;
+            canvas.width = CANVAS_WIDTH;
+            canvas.height = CANVAS_HEIGHT;
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // --- ステージ生成（序盤も少し緊張感のある難易度調整） ---
+        function initGame() {
+            score = 0;
+            distance = 0;
+            player.reset();
+
+            platforms = [];
+            obstacles = [];
+            springPads = [];
+            enemies = [];
+
+            // 最初の足場（以前より少し長さを抑えて速やかにジャンプ地帯へ）
+            platforms.push(new Platform(0, 300, 500, 150, 'roof'));
+        }
+
+        function spawnStageElements() {
+            const lastPlatform = platforms[platforms.length - 1];
+            if (!lastPlatform) return;
+
+            if (lastPlatform.x + lastPlatform.width < CANVAS_WIDTH + 300) {
+
+                let minGap, maxGap, minWidth, maxWidth, allowSpikes, allowCrows, allowNinjas, allowComplex;
+
+                if (score < 300) {
+                    // 【0~299m】 序盤（簡単すぎないよう適度な隙間・スパイクあり）
+                    minGap = 50; maxGap = 85;
+                    minWidth = 260; maxWidth = 420;
+                    allowSpikes = true; allowCrows = false; allowNinjas = false; allowComplex = false;
+                } else if (score < 800) {
+                    // 【300~799m】 カラス解禁
+                    minGap = 75; maxGap = 110;
+                    minWidth = 200; maxWidth = 340;
+                    allowSpikes = true; allowCrows = true; allowNinjas = false; allowComplex = false;
+                } else if (score < 1500) {
+                    // 【800~1499m】 敵忍者（床巡回）＆ギミック解禁
+                    minGap = 90; maxGap = 130;
+                    minWidth = 180; maxWidth = 280;
+                    allowSpikes = true; allowCrows = true; allowNinjas = true; allowComplex = true;
+                } else {
+                    // 【1500m〜】 全要素混在・最高難易度
+                    minGap = 100; maxGap = 160;
+                    minWidth = 120; maxWidth = 240;
+                    allowSpikes = true; allowCrows = true; allowNinjas = true; allowComplex = true;
+                }
+
+                const rand = Math.random();
+                const gap = Math.random() * (maxGap - minGap) + minGap;
+                const nextX = lastPlatform.x + lastPlatform.width + gap;
+
+                // 2段構造
+                if (allowComplex && rand < 0.3) {
+                    const bottomY = Math.random() * 50 + 320;
+                    const topY = bottomY - 140;
+                    const width = Math.random() * (maxWidth - minWidth) + minWidth;
+
+                    const bPlat = new Platform(nextX, bottomY, width, CANVAS_HEIGHT - bottomY, 'rail');
+                    platforms.push(bPlat);
+                    platforms.push(new Platform(nextX + 40, topY, width - 80, 10, 'wire'));
+
+                    if (allowSpikes && Math.random() < 0.6) {
+                        obstacles.push(new Obstacle(nextX + width / 2, topY - 45, 30, 30, 'shuriken'));
+                    }
+
+                    if (allowNinjas && Math.random() < 0.5 && width > 200) {
+                        enemies.push(new Enemy(nextX + width - 40, bottomY - 36, 'ninja', bPlat));
+                    }
+                } 
+                // 電柱地帯（1500m以降）
+                else if (score >= 1500 && rand > 0.75) {
+                    let poleX = nextX;
+                    for (let i = 0; i < 3; i++) {
+                        const poleY = Math.random() * 60 + 250;
+                        platforms.push(new Platform(poleX, poleY, 70, CANVAS_HEIGHT - poleY, 'pole'));
+                        
+                        if (i === 1 && Math.random() < 0.7) {
+                            obstacles.push(new Obstacle(poleX + 20, poleY - 40, 30, 30, 'shuriken'));
+                        }
+                        poleX += 70 + Math.random() * 60 + 70;
+                    }
+                }
+                // 通常の屋根足場
+                else {
+                    const heightVariation = (score < 300) ? 60 : 120;
+                    const nextY = Math.min(Math.max(lastPlatform.y + (Math.random() * heightVariation - heightVariation / 2), 200), 360);
+                    const width = Math.random() * (maxWidth - minWidth) + minWidth;
+                    
+                    const newPlat = new Platform(nextX, nextY, width, CANVAS_HEIGHT - nextY, 'roof');
+                    platforms.push(newPlat);
+
+                    // スパイク or ジャンプ台
+                    if (allowSpikes) {
+                        if (allowComplex && Math.random() < 0.3) {
+                            springPads.push(new SpringPad(nextX + 40, nextY - 12));
+                        } else if (Math.random() < (score < 300 ? 0.3 : 0.5)) {
+                            obstacles.push(new Obstacle(nextX + width / 2, nextY - 25, 25, 25, 'spike'));
+                        }
+                    }
+
+                    // 敵忍者の配置（屋根の上を巡回）
+                    if (allowNinjas && Math.random() < 0.5 && width > 200) {
+                        enemies.push(new Enemy(nextX + width - 40, nextY - 36, 'ninja', newPlat));
+                    }
+                }
+
+                // カラスの配置（上空）
+                if (allowCrows && Math.random() < 0.4) {
+                    const crowY = Math.random() * 120 + 130;
+                    enemies.push(new Enemy(CANVAS_WIDTH + 100, crowY, 'crow'));
+                }
+            }
+        }
+
+        // --- 描画ロジック ---
+        function drawBackground() {
+            const bgData = getInterpolatedBg();
+
+            // グラデーション空
+            const grad = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+            grad.addColorStop(0, bgData.top);
+            grad.addColorStop(1, bgData.bottom);
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+            // 太陽 / 月
+            ctx.fillStyle = bgData.sunColor;
+            ctx.beginPath();
+            ctx.arc(660, bgData.sunY, 40, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 遠くの街並み
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+            for (let i = 0; i < 8; i++) {
+                const x = ((i * 120) - (distance * 0.1) % 120);
+                ctx.fillRect(x, CANVAS_HEIGHT - 120, 80, 120);
+            }
+
+            timeBadge.innerText = bgData.phaseName;
+        }
+
+        // --- ループ＆更新 ---
+        function update() {
+            if (gameState !== 'PLAYING') return;
+
+            distance += gameSpeed;
+            score = Math.floor(distance / 10);
+            scoreText.innerText = `${score}m`;
+
+            player.update();
+
+            // 足場着地判定
+            let currentlyGrounded = false;
+            for (let i = platforms.length - 1; i >= 0; i--) {
+                const p = platforms[i];
+                p.update();
+
+                if (
+                    player.x + player.width > p.x &&
+                    player.x < p.x + p.width &&
+                    player.y + player.height >= p.y &&
+                    player.y + player.height <= p.y + player.velocityY + 10 &&
+                    player.velocityY >= 0
+                ) {
+                    player.y = p.y - player.height;
+                    player.velocityY = 0;
+                    player.isGrounded = true;
+                    player.jumpCount = 0;
+                    currentlyGrounded = true;
+                }
+
+                if (p.x + p.width < -100) platforms.splice(i, 1);
+            }
+
+            if (!currentlyGrounded) player.isGrounded = false;
+
+            // ジャンプ台判定
+            for (let i = springPads.length - 1; i >= 0; i--) {
+                const s = springPads[i];
+                s.update();
+
+                if (
+                    player.x + player.width > s.x &&
+                    player.x < s.x + s.width &&
+                    player.y + player.height >= s.y &&
+                    player.y + player.height <= s.y + 12 &&
+                    player.velocityY >= 0
+                ) {
+                    player.jump(-18, true);
+                }
+
+                if (s.x + s.width < -50) springPads.splice(i, 1);
+            }
+
+            // 障害物判定（スパイク・手裏剣）
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                const obs = obstacles[i];
+                obs.update();
+
+                const padding = 4;
+                if (
+                    player.x + padding < obs.x + obs.width &&
+                    player.x + player.width - padding > obs.x &&
+                    player.y + padding < obs.y + obs.height &&
+                    player.y + player.height - padding > obs.y
+                ) {
+                    triggerGameOver();
+                }
+
+                if (obs.x + obs.width < -50) obstacles.splice(i, 1);
+            }
+
+            // 敵判定（カラス・敵忍者）
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                const enemy = enemies[i];
+                enemy.update();
+
+                const padding = 5;
+                if (
+                    player.x + padding < enemy.x + enemy.width &&
+                    player.x + player.width - padding > enemy.x &&
+                    player.y + padding < enemy.y + enemy.height &&
+                    player.y + player.height - padding > enemy.y
+                ) {
+                    triggerGameOver();
+                }
+
+                if (enemy.x + enemy.width < -100) enemies.splice(i, 1);
+            }
+
+            // 落下判定
+            if (player.y > CANVAS_HEIGHT + 60) {
+                triggerGameOver();
+            }
+
+            spawnStageElements();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+            drawBackground();
+
+            platforms.forEach(p => p.draw());
+            springPads.forEach(s => s.draw());
+            obstacles.forEach(o => o.draw());
+            enemies.forEach(e => e.draw());
+
+            player.draw();
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        // --- ゲーム制御 ---
+        function startGame() {
+            sfx.init();
+            initGame();
+            gameState = 'PLAYING';
+
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            hud.classList.remove('hidden');
+
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
+            gameLoop();
+        }
+
+        function triggerGameOver() {
+            sfx.playHit();
+            gameState = 'GAMEOVER';
+
+            saveHighScore();
+
+            hud.classList.add('hidden');
+            gameOverScreen.classList.remove('hidden');
+            finalScoreText.innerText = `${score}m`;
+        }
+
+        // --- 操作系 ---
+        function handleInput(e) {
+            if (e.target && e.target.tagName === 'BUTTON') return;
+
+            if (e.type === 'touchstart') {
+                e.preventDefault();
+            }
+
+            if (gameState === 'PLAYING') {
+                player.jump();
+            }
+        }
+
+        window.addEventListener('touchstart', handleInput, { passive: false });
+        window.addEventListener('mousedown', handleInput);
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.code === 'ArrowUp') {
+                e.preventDefault();
+                if (gameState === 'START' || gameState === 'GAMEOVER') {
+                    startGame();
+                } else {
+                    player.jump();
+                }
+            }
+        });
+
+        const handleBtnClick = (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            startGame();
+        };
+
+        startBtn.addEventListener('click', handleBtnClick);
+        startBtn.addEventListener('touchstart', handleBtnClick, { passive: false });
+
+        restartBtn.addEventListener('click', handleBtnClick);
+        restartBtn.addEventListener('touchstart', handleBtnClick, { passive: false });
+
+        // 初期表示
+        loadHighScore();
+        initGame();
+        drawBackground();
+        player.draw();
+    </script>
+</body>
+</html>
+
