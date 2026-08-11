@@ -16,57 +16,44 @@
         body, html {
             width: 100%;
             height: 100%;
-            overflow: hidden;
+            overflow-x: hidden;
             background-color: #0b0f19;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex;
-            justify-content: center;
+            flex-direction: column;
+            justify-content: flex-start;
             align-items: center;
         }
-        /* 横画面でもはみ出さず、全体の高さを100vh内にフィットさせる Wrapper */
         #main-wrapper {
             width: 100%;
-            height: 100vh;
             max-width: 960px;
             display: flex;
             flex-direction: column;
-            justify-content: center;
             align-items: center;
-            padding: 4px;
-            gap: 6px;
         }
-        /* アスペクト比16:9を維持し、高さ・幅が100%以内に自動縮小するゲームコンテナ */
         #game-container {
             position: relative;
             width: 100%;
-            max-height: calc(100vh - 80px); /* 広告領域分を差し引いて縦画面・横画面どちらでも切れない高さに調整 */
             aspect-ratio: 16 / 9;
             background-color: #75c6f1;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
             border-radius: 0;
             overflow: hidden;
-            display: flex;
-            justify-content: center;
-            align-items: center;
         }
         canvas {
             width: 100%;
             height: 100%;
             display: block;
-            object-fit: contain;
         }
-        /* 下部広告スペース (横画面でも切れないコンパクト配置) */
         #ad-container {
             width: 100%;
-            max-height: 70px;
-            min-height: 50px;
+            margin-top: 15px;
+            padding: 10px 0;
             display: flex;
             justify-content: center;
             align-items: center;
             background-color: rgba(255, 255, 255, 0.05);
             border-top: 1px solid rgba(255, 255, 255, 0.1);
-            overflow: hidden;
-            flex-shrink: 0;
         }
     </style>
 </head>
@@ -251,7 +238,11 @@ let feedbackText = '';
 let feedbackTimer = 0;
 let isNewHighScore = false;
 
-// プレイヤー
+// 大ジャンプ進行管理
+let completedBigJumps = 0;
+let lastLandingDistance = 0;
+
+// プレイヤー設定
 const PLAYER_X = 200;
 const player = {
     slopeX: PLAYER_X,
@@ -261,16 +252,15 @@ const player = {
     jumpPower: -11.0,
     isJumping: false,
     
-    flapBoost: 0,
+    slowFallTicks: 0,
     tapCountInAir: 0,
 
-    // 崖下落下アニメーション用
     isFallingInHole: false,
     fallX: PLAYER_X,
     fallY: 0
 };
 
-// ハイスコアメモリデータ
+// ハイスコアデータ
 let highScoreData = {
     totalScore: 0,
     bestDistance: 0,
@@ -298,14 +288,13 @@ function saveHighScore(total, dist, jump) {
 
 loadHighScore();
 
-// 斜面の基準位置
 const SLOPE_ORIGIN_Y = 200;
 
 function getSlopeY(x) {
     return SLOPE_ORIGIN_Y + x * Math.tan(SLOPE_ANGLE);
 }
 
-// ボタンUI領域
+// UIボタン
 const buttons = {
     startBtn: { x: BASE_WIDTH / 2 - 160, y: 310, w: 320, h: 64 },
     highScoreBtn: { x: BASE_WIDTH / 2 - 160, y: 395, w: 320, h: 56 },
@@ -333,7 +322,7 @@ function getCanvasCoords(e) {
     return { x, y };
 }
 
-// 雪しぶきパーティクル
+// 雪パーティクル
 let particles = [];
 
 function createSnowSpray(x, y, count = 10) {
@@ -349,12 +338,11 @@ function createSnowSpray(x, y, count = 10) {
     }
 }
 
-// 障害物配列とジャンプ台管理
 let obstacles = [];
 let spawnTimer = 0;
-let nextRampDistance = 1000;
+let nextRampTargetDistance = 1000;
 
-// タップ・入力処理
+// 入力ハンドラ
 function handleInput(e) {
     if (e) e.preventDefault();
     sounds.init();
@@ -395,17 +383,28 @@ function handleInput(e) {
             player.vAir = player.jumpPower;
             player.isJumping = true;
             player.tapCountInAir = 0;
+            player.slowFallTicks = 0;
             sounds.playJump();
             createSnowSpray(player.slopeX, getSlopeY(player.slopeX), 12);
         } else {
-            player.flapBoost += 0.9;
+            player.slowFallTicks = 16;
             player.tapCountInAir++;
+
+            if (player.vAir > 0) {
+                player.vAir *= 0.5;
+            }
+
             sounds.playFlap();
             createSnowSpray(player.slopeX - 5, getSlopeY(player.slopeX) - player.airOffset, 4);
         }
     } else if (gameState === STATE.BIG_JUMPING) {
-        player.flapBoost += 1.2;
+        player.slowFallTicks = 18;
         player.tapCountInAir++;
+
+        if (player.vAir > 0) {
+            player.vAir *= 0.5;
+        }
+
         sounds.playFlap();
         createSnowSpray(player.slopeX - 5, getSlopeY(player.slopeX) - player.airOffset, 5);
     }
@@ -438,7 +437,11 @@ function resetGame() {
     obstacles = [];
     particles = [];
     spawnTimer = 0;
-    nextRampDistance = 1000;
+    
+    completedBigJumps = 0;
+    lastLandingDistance = 0;
+    nextRampTargetDistance = 1000;
+
     feedbackText = '';
     feedbackTimer = 0;
     isNewHighScore = false;
@@ -446,35 +449,34 @@ function resetGame() {
     player.airOffset = 0;
     player.vAir = 0;
     player.isJumping = false;
-    player.flapBoost = 0;
+    player.slowFallTicks = 0;
     player.tapCountInAir = 0;
     player.isFallingInHole = false;
     player.fallX = PLAYER_X;
     player.fallY = 0;
 }
 
-// 穴生成
 function createHoleObstacle(spawnDist) {
     const holeWidth = 70 + Math.random() * 35;
     return { type: 'hole', dist: spawnDist, w: holeWidth };
 }
 
-// 障害物生成
+// 障害物生成ロジック
 function updateSpawns() {
-    if (gameState === STATE.BIG_JUMPING || player.isFallingInHole) return;
+    if (player.isFallingInHole) return;
 
     spawnTimer += speed;
 
-    if (distance >= nextRampDistance) {
+    if (distance >= nextRampTargetDistance) {
         const spawnDist = 1100;
         obstacles.push({ type: 'ramp', dist: spawnDist, w: 100, h: 45, triggered: false });
-        nextRampDistance += 1000;
+        nextRampTargetDistance = 99999999;
         spawnTimer = -200;
         return;
     }
 
     const currentDist = distance;
-    if (Math.abs(currentDist - (nextRampDistance - 1000)) < 15 || Math.abs(currentDist - nextRampDistance) < 15) {
+    if (Math.abs(currentDist - nextRampTargetDistance) < 15) {
         return;
     }
 
@@ -485,65 +487,43 @@ function updateSpawns() {
         spawnTimer = 0;
         const spawnDist = 1100;
 
-        if (distance < 500) {
+        const canHole = distance >= 500;
+        const canTreeNormal = completedBigJumps >= 1;
+        const canSkier = completedBigJumps >= 1 && (distance - lastLandingDistance >= 500);
+        const canTreeTall = completedBigJumps >= 2;
+        const canHoleLandslide = completedBigJumps >= 2 && (distance - lastLandingDistance >= 500);
+
+        let candidates = ['snowman'];
+
+        // 500m以降、時々（約30%の確率で）連続雪だるまも選択可能に
+        if (distance >= 500 && Math.random() < 0.3) candidates.push('snowman_multi');
+        if (canHole) candidates.push('hole');
+        if (canTreeNormal) candidates.push('tree_normal');
+        if (canSkier) candidates.push('skier');
+        if (canTreeTall) candidates.push('tree_tall');
+        if (canHoleLandslide) candidates.push('hole_landslide');
+
+        const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+
+        if (chosen === 'snowman') {
             obstacles.push({ type: 'snowman', dist: spawnDist, w: 38, h: 48 });
-        } 
-        else if (distance < 1000) {
-            if (Math.random() < 0.5) {
-                obstacles.push({ type: 'snowman', dist: spawnDist, w: 38, h: 48 });
-            } else {
-                obstacles.push(createHoleObstacle(spawnDist));
+        } else if (chosen === 'snowman_multi') {
+            const snowCount = Math.random() < 0.6 ? 2 : 3;
+            for (let k = 0; k < snowCount; k++) {
+                obstacles.push({ type: 'snowman', dist: spawnDist + (k * 45), w: 38, h: 48 });
             }
-        } 
-        else if (distance < 2000) {
-            const rand = Math.random();
-            if (rand < 0.35) {
-                const snowCount = distance > 1200 && Math.random() < 0.4 ? (Math.random() < 0.5 ? 2 : 3) : 1;
-                for (let k = 0; k < snowCount; k++) {
-                    obstacles.push({ type: 'snowman', dist: spawnDist + (k * 45), w: 38, h: 48 });
-                }
-            } else if (rand < 0.70) {
-                obstacles.push(createHoleObstacle(spawnDist));
-            } else {
-                obstacles.push({ type: 'tree', dist: spawnDist, w: 48, h: 75, isTall: false });
-            }
-        }
-        else if (distance < 3000) {
-            const rand = Math.random();
-            if (rand < 0.25) {
-                const snowCount = Math.random() < 0.5 ? (Math.random() < 0.5 ? 2 : 3) : 1;
-                for (let k = 0; k < snowCount; k++) {
-                    obstacles.push({ type: 'snowman', dist: spawnDist + (k * 45), w: 38, h: 48 });
-                }
-            } else if (rand < 0.50) {
-                obstacles.push(createHoleObstacle(spawnDist));
-            } else if (rand < 0.75) {
-                obstacles.push({ type: 'tree', dist: spawnDist, w: 48, h: 75, isTall: false });
-            } else {
-                obstacles.push({ type: 'skier', dist: spawnDist, w: 40, h: 58, relSpeed: 2.0, falling: false, fallY: 0 });
-            }
-        }
-        else {
-            const rand = Math.random();
-            if (rand < 0.20) {
-                const snowCount = Math.random() < 0.5 ? (Math.random() < 0.5 ? 2 : 3) : 1;
-                for (let k = 0; k < snowCount; k++) {
-                    obstacles.push({ type: 'snowman', dist: spawnDist + (k * 45), w: 38, h: 48 });
-                }
-            } else if (rand < 0.40) {
-                obstacles.push(createHoleObstacle(spawnDist));
-            } else if (rand < 0.60) {
-                obstacles.push({ type: 'tree', dist: spawnDist, w: 48, h: 75, isTall: false });
-            } else if (rand < 0.80) {
-                obstacles.push({ type: 'skier', dist: spawnDist, w: 40, h: 58, relSpeed: 2.0, falling: false, fallY: 0 });
-            } else {
-                obstacles.push({ type: 'tree', dist: spawnDist, w: 58, h: 110, isTall: true });
-            }
+        } else if (chosen === 'hole' || chosen === 'hole_landslide') {
+            obstacles.push(createHoleObstacle(spawnDist));
+        } else if (chosen === 'tree_normal') {
+            obstacles.push({ type: 'tree', dist: spawnDist, w: 48, h: 75, isTall: false });
+        } else if (chosen === 'skier') {
+            obstacles.push({ type: 'skier', dist: spawnDist, w: 40, h: 58, relSpeed: 2.0, falling: false, fallY: 0 });
+        } else if (chosen === 'tree_tall') {
+            obstacles.push({ type: 'tree', dist: spawnDist, w: 58, h: 110, isTall: true });
         }
     }
 }
 
-// 大ジャンプ開始
 function triggerBigJump(rampObs) {
     if (rampObs.triggered) return;
     rampObs.triggered = true;
@@ -551,14 +531,13 @@ function triggerBigJump(rampObs) {
     gameState = STATE.BIG_JUMPING;
     player.vAir = -15;
     player.airOffset = 10;
-    player.flapBoost = 0;
+    player.slowFallTicks = 0;
     player.tapCountInAir = 0;
     lastJumpDist = 0;
 
     sounds.playBigJump();
 }
 
-// 更新処理
 function update() {
     if (gameState === STATE.TITLE || gameState === STATE.HIGHSCORE_MODAL) {
         distance += 0.5;
@@ -603,7 +582,6 @@ function update() {
             const ox = obs.dist;
             const px = player.slopeX;
 
-            // 当たり判定
             if (!player.isFallingInHole && obs.type === 'hole') {
                 const holeLeft = ox - obs.w * 0.35;
                 const holeRight = ox + obs.w * 0.35;
@@ -641,7 +619,6 @@ function update() {
         }
     }
 
-    // 崖下落下アニメーション処理
     if (player.isFallingInHole) {
         player.fallY += 11;
         player.fallX -= speed * 0.4;
@@ -657,12 +634,16 @@ function update() {
     // 通常ジャンプ物理
     if (gameState === STATE.PLAYING && !player.isFallingInHole) {
         if (player.isJumping) {
-            if (player.flapBoost > 0) {
-                player.vAir -= player.flapBoost;
-                player.flapBoost = 0;
+            let currentGravity = player.gravity * 0.65;
+            
+            if (player.slowFallTicks > 0 && player.vAir >= 0) {
+                currentGravity *= 0.15;
+                player.slowFallTicks--;
+            } else if (player.slowFallTicks > 0 && player.vAir < 0) {
+                player.slowFallTicks--;
             }
 
-            player.vAir += player.gravity * 0.65;
+            player.vAir += currentGravity;
             player.airOffset -= player.vAir;
 
             if (player.airOffset <= 0) {
@@ -671,7 +652,7 @@ function update() {
                 player.airOffset = 0;
                 player.vAir = 0;
                 player.isJumping = false;
-                player.flapBoost = 0;
+                player.slowFallTicks = 0;
             }
         } else {
             if (Math.random() < 0.4) {
@@ -681,12 +662,15 @@ function update() {
 
     } else if (gameState === STATE.BIG_JUMPING && !player.isFallingInHole) {
         // 大ジャンプ物理
-        if (player.flapBoost > 0) {
-            player.vAir -= player.flapBoost;
-            player.flapBoost = 0;
+        let currentGravity = player.gravity * 0.35;
+        if (player.slowFallTicks > 0 && player.vAir >= 0) {
+            currentGravity *= 0.15;
+            player.slowFallTicks--;
+        } else if (player.slowFallTicks > 0 && player.vAir < 0) {
+            player.slowFallTicks--;
         }
 
-        player.vAir += player.gravity * 0.35;
+        player.vAir += currentGravity;
         player.airOffset -= player.vAir;
 
         if (player.airOffset > 320) {
@@ -694,7 +678,7 @@ function update() {
             if (player.vAir < 0) player.vAir = 0;
         }
 
-        lastJumpDist += Math.floor(speed * 0.6);
+        lastJumpDist += Math.floor(speed * 0.6) + (player.slowFallTicks > 0 ? 1 : 0);
 
         if (player.airOffset <= 0) {
             player.airOffset = 0;
@@ -707,7 +691,11 @@ function update() {
             jumpHistory.push(lastJumpDist);
             totalJumpDistance += lastJumpDist;
 
-            feedbackText = `JUMP #${jumpHistory.length}: +${lastJumpDist}m!`;
+            completedBigJumps++;
+            lastLandingDistance = distance;
+            nextRampTargetDistance = distance + 1000;
+
+            feedbackText = `BIG JUMP #${jumpHistory.length}: +${lastJumpDist}m!`;
             feedbackTimer = 60;
         }
     }
@@ -760,7 +748,6 @@ function render() {
 
     const sortedObs = [...obstacles].sort((a, b) => a.dist - b.dist);
 
-    // 1. ジャンプ台の縦線を斜面の後ろに隠す
     sortedObs.forEach(obs => {
         if (obs.type === 'ramp') {
             const rStart = obs.dist - obs.w / 2;
@@ -773,7 +760,6 @@ function render() {
         }
     });
 
-    // 2. 斜面ブロック描画
     ctx.fillStyle = '#ffffff';
     ctx.strokeStyle = '#2b384a';
     ctx.lineWidth = 2;
@@ -988,7 +974,7 @@ function render() {
 
     ctx.restore();
 
-    // プレイ中/大ジャンプ中のHUD表示
+    // HUD（英語化）
     if (gameState === STATE.PLAYING || gameState === STATE.BIG_JUMPING) {
         if (gameState === STATE.BIG_JUMPING) {
             ctx.fillStyle = '#ff6d00';
@@ -1021,7 +1007,7 @@ function render() {
         }
     }
 
-    // --- タイトル画面 ---
+    // タイトル画面
     if (gameState === STATE.TITLE) {
         ctx.fillStyle = 'rgba(10, 20, 30, 0.65)';
         ctx.fillRect(0, 0, BASE_WIDTH, BASE_HEIGHT);
@@ -1045,7 +1031,7 @@ function render() {
         drawButton(buttons.highScoreBtn, '#0288d1', '#01579b', 'HIGH SCORES 🏆');
     }
 
-    // --- ハイスコア画面ダイアログ ---
+    // ハイスコアモーダル
     if (gameState === STATE.HIGHSCORE_MODAL) {
         ctx.fillStyle = 'rgba(10, 20, 30, 0.75)';
         ctx.fillRect(0, 0, BASE_WIDTH, BASE_HEIGHT);
@@ -1078,46 +1064,92 @@ function render() {
         drawButton(buttons.closeModalBtn, '#ef5350', '#c62828', 'CLOSE');
     }
 
-    // --- ゲームオーバー画面 ---
+    // ★ ゲームオーバー画面（全テキスト英語化スコア表）
     if (gameState === STATE.GAMEOVER) {
-        ctx.fillStyle = 'rgba(10, 20, 30, 0.85)';
+        ctx.fillStyle = 'rgba(10, 20, 30, 0.88)';
         ctx.fillRect(0, 0, BASE_WIDTH, BASE_HEIGHT);
 
         const totalScore = Math.floor(distance) + totalJumpDistance;
 
         ctx.fillStyle = '#ff1744';
         ctx.textAlign = 'center';
-        ctx.font = 'bold 42px sans-serif';
-        ctx.fillText('CRASHED!', BASE_WIDTH / 2, 100);
+        ctx.font = 'bold 38px sans-serif';
+        ctx.fillText('CRASHED!', BASE_WIDTH / 2, 68);
 
         if (isNewHighScore) {
             ctx.fillStyle = '#ffd54f';
-            ctx.font = 'bold 22px sans-serif';
-            ctx.fillText('🎉 NEW HIGH SCORE! 🎉', BASE_WIDTH / 2, 138);
+            ctx.font = 'bold 20px sans-serif';
+            ctx.fillText('🎉 NEW HIGH SCORE! 🎉', BASE_WIDTH / 2, 102);
         }
 
-        ctx.fillStyle = '#ffffff';
+        const boardX = BASE_WIDTH / 2 - 220;
+        const boardY = 120;
+        const boardW = 440;
+        const boardH = 200;
+
+        ctx.fillStyle = 'rgba(20, 35, 50, 0.9)';
+        ctx.strokeStyle = '#0288d1';
+        ctx.lineWidth = 2;
+        ctx.fillRect(boardX, boardY, boardW, boardH);
+        ctx.strokeRect(boardX, boardY, boardW, boardH);
+
         ctx.font = '18px sans-serif';
-        ctx.fillText(`Downhill Run: ${Math.floor(distance)}m`, BASE_WIDTH / 2, 175);
+        let currentLineY = boardY + 30;
 
-        // 回数別ジャンプ獲得内訳
-        if (jumpHistory.length > 0) {
-            ctx.fillStyle = '#81d4fa';
-            ctx.font = 'bold 16px sans-serif';
-            let jumpBreakdownStr = jumpHistory.map((d, idx) => `Jump #${idx + 1}: +${d}m`).join('  |  ');
-            if (jumpBreakdownStr.length > 65) {
-                jumpBreakdownStr = jumpBreakdownStr.substring(0, 62) + '...';
+        // 1. DOWNHILL RUN (滑走距離)
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText('• DOWNHILL RUN', boardX + 20, currentLineY);
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#81d4fa';
+        ctx.fillText(`${Math.floor(distance)}m`, boardX + boardW - 20, currentLineY);
+
+        currentLineY += 28;
+
+        // 2. BIG JUMPS (ジャンプ一覧)
+        if (jumpHistory.length === 0) {
+            ctx.textAlign = 'left';
+            ctx.fillStyle = '#b0bec5';
+            ctx.fillText('• BIG JUMPS', boardX + 20, currentLineY);
+            ctx.textAlign = 'right';
+            ctx.fillText('NONE (+0m)', boardX + boardW - 20, currentLineY);
+            currentLineY += 28;
+        } else {
+            const maxDisplay = 3;
+            for (let k = 0; k < Math.min(jumpHistory.length, maxDisplay); k++) {
+                ctx.textAlign = 'left';
+                ctx.fillStyle = '#b0bec5';
+                ctx.fillText(`• BIG JUMP #${k + 1}`, boardX + 20, currentLineY);
+                ctx.textAlign = 'right';
+                ctx.fillStyle = '#00e676';
+                ctx.fillText(`+${jumpHistory[k]}m`, boardX + boardW - 20, currentLineY);
+                currentLineY += 26;
             }
-            ctx.fillText(jumpBreakdownStr, BASE_WIDTH / 2, 205);
+            if (jumpHistory.length > maxDisplay) {
+                const remainingSum = jumpHistory.slice(maxDisplay).reduce((a, b) => a + b, 0);
+                ctx.textAlign = 'left';
+                ctx.fillStyle = '#b0bec5';
+                ctx.fillText(`• OTHER JUMPS (${jumpHistory.length - maxDisplay})`, boardX + 20, currentLineY);
+                ctx.textAlign = 'right';
+                ctx.fillStyle = '#00e676';
+                ctx.fillText(`+${remainingSum}m`, boardX + boardW - 20, currentLineY);
+                currentLineY += 26;
+            }
         }
 
-        ctx.fillStyle = '#00e676';
-        ctx.font = 'bold 18px sans-serif';
-        ctx.fillText(`Total Airtime Bonus: +${totalJumpDistance}m`, BASE_WIDTH / 2, 238);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.beginPath();
+        ctx.moveTo(boardX + 15, boardY + boardH - 40);
+        ctx.lineTo(boardX + boardW - 15, boardY + boardH - 40);
+        ctx.stroke();
 
+        // 3. TOTAL SCORE
+        ctx.textAlign = 'left';
         ctx.fillStyle = '#ffd54f';
-        ctx.font = 'bold 32px sans-serif';
-        ctx.fillText(`TOTAL SCORE: ${totalScore}`, BASE_WIDTH / 2, 290);
+        ctx.font = 'bold 20px sans-serif';
+        ctx.fillText('TOTAL SCORE', boardX + 20, boardY + boardH - 12);
+        ctx.textAlign = 'right';
+        ctx.fillText(`${totalScore} pts`, boardX + boardW - 20, boardY + boardH - 12);
 
         drawButton(buttons.restartBtn, '#ff9800', '#f57c00', 'PLAY AGAIN 🔄');
         drawButton(buttons.titleBtn, '#607d8b', '#37474f', 'TITLE MENU 🏠');
