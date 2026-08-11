@@ -16,21 +16,28 @@
         body, html {
             width: 100%;
             height: 100%;
-            overflow: hidden;
+            overflow-x: hidden;
             background-color: #0b0f19;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex;
-            justify-content: center;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+        }
+        #main-wrapper {
+            width: 100%;
+            max-width: 960px;
+            display: flex;
+            flex-direction: column;
             align-items: center;
         }
         #game-container {
             position: relative;
             width: 100%;
-            max-width: 960px;
             aspect-ratio: 16 / 9;
             background-color: #75c6f1;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
-            border-radius: 12px;
+            border-radius: 0;
             overflow: hidden;
         }
         canvas {
@@ -38,12 +45,30 @@
             height: 100%;
             display: block;
         }
+        #ad-container {
+            width: 100%;
+            margin-top: 15px;
+            padding: 10px 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(255, 255, 255, 0.05);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
     </style>
 </head>
 <body>
 
-<div id="game-container">
-    <canvas id="gameCanvas"></canvas>
+<div id="main-wrapper">
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <!-- admax -->
+    <div id="ad-container">
+        <script src="https://adm.shinobi.jp/s/8a495d941206bf0c34aff9559f8d2cea"></script>
+    </div>
+    <!-- admax -->
 </div>
 
 <script>
@@ -140,13 +165,13 @@ class SoundController {
         const gain = this.ctx.createGain();
         osc.type = 'sawtooth';
         osc.frequency.setValueAtTime(300, this.ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(60, this.ctx.currentTime + 0.3);
-        gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+        osc.frequency.exponentialRampToValueAtTime(60, this.ctx.currentTime + 0.4);
+        gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.4);
         osc.connect(gain);
         gain.connect(this.ctx.destination);
         osc.start();
-        osc.stop(this.ctx.currentTime + 0.3);
+        osc.stop(this.ctx.currentTime + 0.4);
     }
 
     playNewRecord() {
@@ -208,9 +233,29 @@ let speed = BASE_SPEED;
 let distance = 0;
 let totalJumpDistance = 0;
 let lastJumpDist = 0;
+let jumpHistory = [];
 let feedbackText = '';
 let feedbackTimer = 0;
 let isNewHighScore = false;
+
+// プレイヤー
+const PLAYER_X = 200;
+const player = {
+    slopeX: PLAYER_X,
+    airOffset: 0,
+    vAir: 0,
+    gravity: 0.65,
+    jumpPower: -11.0,
+    isJumping: false,
+    
+    flapBoost: 0,
+    tapCountInAir: 0,
+
+    // 崖下落下アニメーション用
+    isFallingInHole: false,
+    fallX: PLAYER_X,
+    fallY: 0
+};
 
 // ハイスコアメモリデータ
 let highScoreData = {
@@ -247,27 +292,13 @@ function getSlopeY(x) {
     return SLOPE_ORIGIN_Y + x * Math.tan(SLOPE_ANGLE);
 }
 
-// プレイヤー
-const PLAYER_X = 200;
-const player = {
-    slopeX: PLAYER_X,
-    airOffset: 0,
-    vAir: 0,
-    gravity: 0.65,
-    jumpPower: -11.0,
-    isJumping: false,
-    
-    flapBoost: 0,
-    tapCountInAir: 0
-};
-
 // ボタンUI領域
 const buttons = {
     startBtn: { x: BASE_WIDTH / 2 - 160, y: 310, w: 320, h: 64 },
     highScoreBtn: { x: BASE_WIDTH / 2 - 160, y: 395, w: 320, h: 56 },
     closeModalBtn: { x: BASE_WIDTH / 2 - 110, y: 410, w: 220, h: 52 },
-    restartBtn: { x: BASE_WIDTH / 2 - 160, y: 390, w: 320, h: 60 },
-    titleBtn: { x: BASE_WIDTH / 2 - 160, y: 462, w: 320, h: 52 }
+    restartBtn: { x: BASE_WIDTH / 2 - 160, y: 390, w: 320, h: 56 },
+    titleBtn: { x: BASE_WIDTH / 2 - 160, y: 458, w: 320, h: 50 }
 };
 
 function isPointInRect(px, py, rect) {
@@ -344,6 +375,9 @@ function handleInput(e) {
         return;
     }
 
+    // 崖下に落下中の動作中はタップによるジャンプ不可
+    if (player.isFallingInHole) return;
+
     if (gameState === STATE.PLAYING) {
         if (!player.isJumping) {
             player.vAir = player.jumpPower;
@@ -388,6 +422,7 @@ function resetGame() {
     distance = 0;
     totalJumpDistance = 0;
     lastJumpDist = 0;
+    jumpHistory = [];
     obstacles = [];
     particles = [];
     spawnTimer = 0;
@@ -401,6 +436,9 @@ function resetGame() {
     player.isJumping = false;
     player.flapBoost = 0;
     player.tapCountInAir = 0;
+    player.isFallingInHole = false;
+    player.fallX = PLAYER_X;
+    player.fallY = 0;
 }
 
 // 穴生成
@@ -411,7 +449,7 @@ function createHoleObstacle(spawnDist) {
 
 // 障害物生成
 function updateSpawns() {
-    if (gameState === STATE.BIG_JUMPING) return;
+    if (gameState === STATE.BIG_JUMPING || player.isFallingInHole) return;
 
     spawnTimer += speed;
 
@@ -423,7 +461,6 @@ function updateSpawns() {
         return;
     }
 
-    // ★ ジャンプ台の前後10m以内には障害物を一切置かない安全マージン
     const currentDist = distance;
     if (Math.abs(currentDist - (nextRampDistance - 1000)) < 15 || Math.abs(currentDist - nextRampDistance) < 15) {
         return;
@@ -436,7 +473,6 @@ function updateSpawns() {
         spawnTimer = 0;
         const spawnDist = 1100;
 
-        // スコア（距離）に応じた出現・連打ギミック判定
         if (distance < 500) {
             obstacles.push({ type: 'snowman', dist: spawnDist, w: 38, h: 48 });
         } 
@@ -450,7 +486,6 @@ function updateSpawns() {
         else if (distance < 2000) {
             const rand = Math.random();
             if (rand < 0.35) {
-                // スコアが高くなると雪だるまが2連・3連で出現
                 const snowCount = distance > 1200 && Math.random() < 0.4 ? (Math.random() < 0.5 ? 2 : 3) : 1;
                 for (let k = 0; k < snowCount; k++) {
                     obstacles.push({ type: 'snowman', dist: spawnDist + (k * 45), w: 38, h: 48 });
@@ -469,7 +504,6 @@ function updateSpawns() {
                     obstacles.push({ type: 'snowman', dist: spawnDist + (k * 45), w: 38, h: 48 });
                 }
             } else if (rand < 0.50) {
-                // 2000m以降は時々「がけ崩れ（穴）」が突如出現
                 obstacles.push(createHoleObstacle(spawnDist));
             } else if (rand < 0.75) {
                 obstacles.push({ type: 'tree', dist: spawnDist, w: 48, h: 75, isTall: false });
@@ -485,7 +519,7 @@ function updateSpawns() {
                     obstacles.push({ type: 'snowman', dist: spawnDist + (k * 45), w: 38, h: 48 });
                 }
             } else if (rand < 0.40) {
-                obstacles.push(createHoleObstacle(spawnDist)); // がけ崩れ穴
+                obstacles.push(createHoleObstacle(spawnDist));
             } else if (rand < 0.60) {
                 obstacles.push({ type: 'tree', dist: spawnDist, w: 48, h: 75, isTall: false });
             } else if (rand < 0.80) {
@@ -557,15 +591,18 @@ function update() {
             const ox = obs.dist;
             const px = player.slopeX;
 
-            // 当たり判定
-            if (obs.type === 'hole') {
-                const holeLeft = ox - obs.w / 2;
-                const holeRight = ox + obs.w / 2;
+            // 穴への落下判定（落下開始のトリガー）
+            if (!player.isFallingInHole && obs.type === 'hole') {
+                const holeLeft = ox - obs.w * 0.35;
+                const holeRight = ox + obs.w * 0.35;
 
-                if (px >= holeLeft && px <= holeRight) {
-                    if (player.airOffset < 15) gameOver();
+                if (px >= holeLeft && px <= holeRight && player.airOffset <= 5) {
+                    player.isFallingInHole = true;
+                    player.fallX = px;
+                    player.fallY = 0;
+                    sounds.playNpcFall();
                 }
-            } else if (obs.type === 'ramp') {
+            } else if (!player.isFallingInHole && obs.type === 'ramp') {
                 const rampStart = ox - obs.w / 2;
                 const rampTip = ox + obs.w / 2;
 
@@ -574,14 +611,14 @@ function update() {
                         triggerBigJump(obs);
                     }
                 }
-            } else if (obs.type === 'skier') {
-                if (!obs.falling && Math.abs(ox - px) < 32) {
-                    if (player.airOffset < obs.h * 0.75) {
+            } else if (!player.isFallingInHole && obs.type === 'skier') {
+                if (!obs.falling && Math.abs(ox - px) < 28) {
+                    if (player.airOffset < obs.h * 0.7) {
                         gameOver();
                     }
                 }
-            } else if (Math.abs(ox - px) < 32) {
-                if (player.airOffset < obs.h * 0.78) {
+            } else if (!player.isFallingInHole && Math.abs(ox - px) < 28) {
+                if (player.airOffset < obs.h * 0.72) {
                     gameOver();
                 }
             }
@@ -592,8 +629,22 @@ function update() {
         }
     }
 
+    // 崖下落下アニメーション処理（背景のスクロールは継続したまま穴と一緒に落ちていく）
+    if (player.isFallingInHole) {
+        player.fallY += 11; // 下方向へ落下
+        player.fallX -= speed * 0.4; // 穴と一緒に左方向へスクロール流れ
+
+        const currentDisplayY = getSlopeY(player.fallX) + player.fallY;
+
+        // ★ 画面底を完全に越えてフレーム外に消えて初めてゲームオーバー画面へ移行！
+        if (currentDisplayY > BASE_HEIGHT + 80) {
+            gameOver();
+            return;
+        }
+    }
+
     // 通常ジャンプ物理
-    if (gameState === STATE.PLAYING) {
+    if (gameState === STATE.PLAYING && !player.isFallingInHole) {
         if (player.isJumping) {
             if (player.flapBoost > 0) {
                 player.vAir -= player.flapBoost;
@@ -617,7 +668,7 @@ function update() {
             }
         }
 
-    } else if (gameState === STATE.BIG_JUMPING) {
+    } else if (gameState === STATE.BIG_JUMPING && !player.isFallingInHole) {
         // 大ジャンプ物理
         if (player.flapBoost > 0) {
             player.vAir -= player.flapBoost;
@@ -642,8 +693,10 @@ function update() {
             createSnowSpray(player.slopeX, getSlopeY(player.slopeX), 30);
             sounds.playLanding();
 
+            jumpHistory.push(lastJumpDist);
             totalJumpDistance += lastJumpDist;
-            feedbackText = `BIG JUMP: +${lastJumpDist}m!`;
+
+            feedbackText = `JUMP #${jumpHistory.length}: +${lastJumpDist}m!`;
             feedbackTimer = 60;
         }
     }
@@ -666,6 +719,7 @@ function updateParticles() {
 function gameOver() {
     sounds.playCrash();
     createSnowSpray(player.slopeX, getSlopeY(player.slopeX), 40);
+    player.isFallingInHole = false; // 落下フラグのリセット
     gameState = STATE.GAMEOVER;
 
     const currentTotalScore = Math.floor(distance) + totalJumpDistance;
@@ -695,7 +749,7 @@ function render() {
 
     const sortedObs = [...obstacles].sort((a, b) => a.dist - b.dist);
 
-    // 1. ジャンプ台の左側断崖の縦線を斜面ブロックの後ろに描画
+    // 1. ジャンプ台の縦線を斜面の後ろに隠す
     sortedObs.forEach(obs => {
         if (obs.type === 'ramp') {
             const rStart = obs.dist - obs.w / 2;
@@ -708,7 +762,7 @@ function render() {
         }
     });
 
-    // 2. 斜面ブロックで縦線を綺麗に覆い隠す
+    // 2. 斜面ブロック描画
     ctx.fillStyle = '#ffffff';
     ctx.strokeStyle = '#2b384a';
     ctx.lineWidth = 2;
@@ -874,16 +928,16 @@ function render() {
         ctx.fill();
     });
 
-    // プレイヤー描画
-    const px = player.slopeX;
-    const py = getSlopeY(px) - player.airOffset;
+    // プレイヤー描画（崖下に落ちていくアニメーション対応）
+    const px = player.isFallingInHole ? player.fallX : player.slopeX;
+    const py = player.isFallingInHole ? (getSlopeY(player.fallX) + player.fallY) : (getSlopeY(px) - player.airOffset);
 
     ctx.save();
     ctx.translate(px, py);
-    const leanAngle = SLOPE_ANGLE + (player.airOffset > 0 ? -0.15 : 0.15);
+    const leanAngle = SLOPE_ANGLE + (player.isFallingInHole ? 0.4 : (player.airOffset > 0 ? -0.15 : 0.15));
     ctx.rotate(leanAngle);
 
-    if (player.airOffset > 0) {
+    if (player.airOffset > 0 && !player.isFallingInHole) {
         ctx.save();
         ctx.translate(0, player.airOffset);
         ctx.fillStyle = 'rgba(0,0,0,0.2)';
@@ -1015,37 +1069,51 @@ function render() {
 
     // --- ゲームオーバー画面 ---
     if (gameState === STATE.GAMEOVER) {
-        ctx.fillStyle = 'rgba(10, 20, 30, 0.75)';
+        ctx.fillStyle = 'rgba(10, 20, 30, 0.85)';
         ctx.fillRect(0, 0, BASE_WIDTH, BASE_HEIGHT);
 
         const totalScore = Math.floor(distance) + totalJumpDistance;
 
         ctx.fillStyle = '#ff1744';
         ctx.textAlign = 'center';
-        ctx.font = 'bold 44px sans-serif';
-        ctx.fillText('CRASHED!', BASE_WIDTH / 2, 125);
+        ctx.font = 'bold 42px sans-serif';
+        ctx.fillText('CRASHED!', BASE_WIDTH / 2, 100);
 
         if (isNewHighScore) {
             ctx.fillStyle = '#ffd54f';
-            ctx.font = 'bold 24px sans-serif';
-            ctx.fillText('🎉 NEW HIGH SCORE! 🎉', BASE_WIDTH / 2, 170);
+            ctx.font = 'bold 22px sans-serif';
+            ctx.fillText('🎉 NEW HIGH SCORE! 🎉', BASE_WIDTH / 2, 138);
         }
 
         ctx.fillStyle = '#ffffff';
-        ctx.font = '20px sans-serif';
-        ctx.fillText(`Downhill Distance: ${Math.floor(distance)}m`, BASE_WIDTH / 2, 220);
-        ctx.fillText(`Airtime Distance Bonus: +${totalJumpDistance}m`, BASE_WIDTH / 2, 255);
-        
+        ctx.font = '18px sans-serif';
+        ctx.fillText(`Downhill Run: ${Math.floor(distance)}m`, BASE_WIDTH / 2, 175);
+
+        // 回数別ジャンプ獲得内訳
+        if (jumpHistory.length > 0) {
+            ctx.fillStyle = '#81d4fa';
+            ctx.font = 'bold 16px sans-serif';
+            let jumpBreakdownStr = jumpHistory.map((d, idx) => `Jump #${idx + 1}: +${d}m`).join('  |  ');
+            if (jumpBreakdownStr.length > 65) {
+                jumpBreakdownStr = jumpBreakdownStr.substring(0, 62) + '...';
+            }
+            ctx.fillText(jumpBreakdownStr, BASE_WIDTH / 2, 205);
+        }
+
         ctx.fillStyle = '#00e676';
-        ctx.font = 'bold 36px sans-serif';
-        ctx.fillText(`TOTAL SCORE: ${totalScore}`, BASE_WIDTH / 2, 315);
+        ctx.font = 'bold 18px sans-serif';
+        ctx.fillText(`Total Airtime Bonus: +${totalJumpDistance}m`, BASE_WIDTH / 2, 238);
+
+        ctx.fillStyle = '#ffd54f';
+        ctx.font = 'bold 32px sans-serif';
+        ctx.fillText(`TOTAL SCORE: ${totalScore}`, BASE_WIDTH / 2, 290);
 
         drawButton(buttons.restartBtn, '#ff9800', '#f57c00', 'PLAY AGAIN 🔄');
         drawButton(buttons.titleBtn, '#607d8b', '#37474f', 'TITLE MENU 🏠');
     }
 }
 
-// 汎用描画ボタンヘルパー（テキスト縦方向のズレ完全解消版）
+// 汎用描画ボタンヘルパー
 function drawButton(btn, c1, c2, text) {
     const grad = ctx.createLinearGradient(btn.x, btn.y, btn.x, btn.y + btn.h);
     grad.addColorStop(0, c1);
@@ -1065,8 +1133,7 @@ function drawButton(btn, c1, c2, text) {
     ctx.font = 'bold 21px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    // ベースラインのブラウザ固有のオフセット補正を完全に含めた正確な中央配置
-    ctx.fillText(text, btn.x + btn.w / 2, btn.y + btn.h / 2 + 1);
+    ctx.fillText(text, btn.x + btn.w / 2, btn.y + btn.h / 2);
     ctx.restore();
 }
 
