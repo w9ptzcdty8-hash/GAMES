@@ -16,44 +16,57 @@
         body, html {
             width: 100%;
             height: 100%;
-            overflow-x: hidden;
+            overflow: hidden;
             background-color: #0b0f19;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex;
-            flex-direction: column;
-            justify-content: flex-start;
+            justify-content: center;
             align-items: center;
         }
+        /* 横画面でもはみ出さず、全体の高さを100vh内にフィットさせる Wrapper */
         #main-wrapper {
             width: 100%;
+            height: 100vh;
             max-width: 960px;
             display: flex;
             flex-direction: column;
+            justify-content: center;
             align-items: center;
+            padding: 4px;
+            gap: 6px;
         }
+        /* アスペクト比16:9を維持し、高さ・幅が100%以内に自動縮小するゲームコンテナ */
         #game-container {
             position: relative;
             width: 100%;
+            max-height: calc(100vh - 80px); /* 広告領域分を差し引いて縦画面・横画面どちらでも切れない高さに調整 */
             aspect-ratio: 16 / 9;
             background-color: #75c6f1;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
             border-radius: 0;
             overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
         canvas {
             width: 100%;
             height: 100%;
             display: block;
+            object-fit: contain;
         }
+        /* 下部広告スペース (横画面でも切れないコンパクト配置) */
         #ad-container {
             width: 100%;
-            margin-top: 15px;
-            padding: 10px 0;
+            max-height: 70px;
+            min-height: 50px;
             display: flex;
             justify-content: center;
             align-items: center;
             background-color: rgba(255, 255, 255, 0.05);
             border-top: 1px solid rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+            flex-shrink: 0;
         }
     </style>
 </head>
@@ -375,7 +388,6 @@ function handleInput(e) {
         return;
     }
 
-    // 崖下に落下中の動作中はタップによるジャンプ不可
     if (player.isFallingInHole) return;
 
     if (gameState === STATE.PLAYING) {
@@ -591,7 +603,7 @@ function update() {
             const ox = obs.dist;
             const px = player.slopeX;
 
-            // 穴への落下判定（落下開始のトリガー）
+            // 当たり判定
             if (!player.isFallingInHole && obs.type === 'hole') {
                 const holeLeft = ox - obs.w * 0.35;
                 const holeRight = ox + obs.w * 0.35;
@@ -629,14 +641,13 @@ function update() {
         }
     }
 
-    // 崖下落下アニメーション処理（背景のスクロールは継続したまま穴と一緒に落ちていく）
+    // 崖下落下アニメーション処理
     if (player.isFallingInHole) {
-        player.fallY += 11; // 下方向へ落下
-        player.fallX -= speed * 0.4; // 穴と一緒に左方向へスクロール流れ
+        player.fallY += 11;
+        player.fallX -= speed * 0.4;
 
         const currentDisplayY = getSlopeY(player.fallX) + player.fallY;
 
-        // ★ 画面底を完全に越えてフレーム外に消えて初めてゲームオーバー画面へ移行！
         if (currentDisplayY > BASE_HEIGHT + 80) {
             gameOver();
             return;
@@ -719,7 +730,7 @@ function updateParticles() {
 function gameOver() {
     sounds.playCrash();
     createSnowSpray(player.slopeX, getSlopeY(player.slopeX), 40);
-    player.isFallingInHole = false; // 落下フラグのリセット
+    player.isFallingInHole = false;
     gameState = STATE.GAMEOVER;
 
     const currentTotalScore = Math.floor(distance) + totalJumpDistance;
@@ -928,7 +939,7 @@ function render() {
         ctx.fill();
     });
 
-    // プレイヤー描画（崖下に落ちていくアニメーション対応）
+    // プレイヤー描画
     const px = player.isFallingInHole ? player.fallX : player.slopeX;
     const py = player.isFallingInHole ? (getSlopeY(player.fallX) + player.fallY) : (getSlopeY(px) - player.airOffset);
 
