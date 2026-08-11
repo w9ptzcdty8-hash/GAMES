@@ -54,6 +54,15 @@
     overflow: hidden;
     background: #000;
   }
+  #bottomSafeArea {
+    flex: 0 0 auto;
+    width: 100%;
+    /* Androidの戻るボタン・ジェスチャーバーや、iOSのホームインジケーターに
+       コンテンツが被らないよう、画面最下部に余白を確保する。
+       env(safe-area-inset-bottom)が取れない端末でも最低20pxは確保する。 */
+    height: max(20px, env(safe-area-inset-bottom, 0px));
+    background: #000;
+  }
   #stage {
     width: 375px;
     height: 667px;   /* 9:16 (=16:9のポートレート版) 固定デザイン解像度。CSS transformでscale */
@@ -224,6 +233,8 @@
   <script src="https://adm.shinobi.jp/s/8a495d941206bf0c34aff9559f8d2cea"></script>
   <!-- admax -->
 </div>
+
+<div id="bottomSafeArea"></div>
 
 <script>
 (function () {
