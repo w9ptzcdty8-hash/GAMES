@@ -12,6 +12,7 @@
             color: white;
             font-family: Arial, sans-serif;
             text-align: center;
+            padding-bottom: 100px; /* 広告とプライバシーポリシー等の被りを防ぐため少し広めに変更 */
         }
 
         h1 {
@@ -54,6 +55,23 @@
         .play-button:hover {
             opacity: 0.8;
         }
+
+                /* 画面最下部固定広告 */
+        .ad-banner {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #121212;
+            z-index: 1000;
+            padding-top: 10px;
+            padding-bottom: calc(10px + env(safe-area-inset-bottom));
+            border-top: 1px solid #333;
+        }
+        
     </style>
 </head>
 
@@ -64,15 +82,6 @@
 <p class="subtitle">
     Browser games created by MRS
 </p>
-    
-    <!-- 広告エリア -->
-    <div style="display: flex; justify-content: center; align-items: center; width: 100%; max-width: 100%; overflow: hidden; margin: 20px 0;">
-        <div style="max-width: 100%;">
-            <!-- admax -->
-            <script src="https://adm.shinobi.jp/s/8a495d941206bf0c34aff9559f8d2cea"></script>
-            <!-- admax -->
-        </div>
-    </div>
 
 
         <!-- ゲームリンク -->
@@ -157,8 +166,8 @@
     
 </div>
 
-        <!-- 広告エリア -->
-    <div style="display: flex; justify-content: center; align-items: center; width: 100%; max-width: 100%; overflow: hidden; margin: 20px 0;">
+        <!-- 画面固定広告 -->
+    <div class="ad-banner">
         <div style="max-width: 100%;">
             <!-- admax -->
             <script src="https://adm.shinobi.jp/s/8a495d941206bf0c34aff9559f8d2cea"></script>
