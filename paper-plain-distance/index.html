@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>紙ヒコーキとばそ！</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ============ タイトル画面 ============ -->
+  <section id="screen-title" class="screen is-active">
+    <div class="sky">
+      <div class="cloud cloud--a"></div>
+      <div class="cloud cloud--b"></div>
+      <div class="cloud cloud--c"></div>
+      <div class="sun"></div>
+    </div>
+
+    <div class="title-wrap">
+      <div class="fold-badge">ひきょり を きそえ！</div>
+      <h1 class="game-title">紙ヒコーキ<br><span>とばそ！</span></h1>
+
+      <div class="title-plane-stage">
+        <canvas id="titlePlaneCanvas"></canvas>
+      </div>
+
+      <div class="title-buttons">
+        <button id="btnStart" class="btn btn--primary btn--lg">スタート</button>
+        <button id="btnHighscore" class="btn btn--ghost">ハイスコア</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ハイスコア画面 ============ -->
+  <section id="screen-highscore" class="screen">
+    <div class="panel">
+      <div class="panel-eyebrow">BEST 5</div>
+      <h2 class="panel-title">ハイスコア</h2>
+      <ol id="highscoreList" class="highscore-list"></ol>
+      <button id="btnHSBack" class="btn btn--secondary">タイトルへもどる</button>
+    </div>
+  </section>
+
+  <!-- ============ 機体選択画面 ============ -->
+  <section id="screen-select" class="screen">
+    <div class="select-wrap">
+      <div class="panel-eyebrow">CHOOSE YOUR PLANE</div>
+      <h2 class="select-title">きたいを えらんでね</h2>
+      <div id="planeList" class="plane-list"></div>
+    </div>
+  </section>
+
+  <!-- ============ ゲーム画面 ============ -->
+  <section id="screen-game" class="screen">
+    <canvas id="gameCanvas"></canvas>
+
+    <div class="hud">
+      <button id="btnGameBack" class="hud-back" aria-label="もどる">←</button>
+      <div id="windIndicator" class="wind-indicator">
+        <div class="wind-arrow" id="windArrow">➜</div>
+        <div class="wind-text">
+          <span id="windLabel">無風</span>
+          <span id="windSpeed">0</span>
+        </div>
+      </div>
+      <div class="hud-right">
+        <div id="distanceLive" class="distance-live">0.0<span>m</span></div>
+        <div id="debugInfo" class="debug-info">
+          <div>vx: 0.00</div>
+          <div>vy: 0.00</div>
+          <div>y: 0.00</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tap-hint" id="tapHint">タップ連打！</div>
+
+    <div class="aim-panel" id="aimPanel">
+      <div class="aim-label" id="aimLabel">画面をタップして 角度をきめろ！</div>
+
+      <div class="bar-track bar-track--h" id="angleBarTrack">
+        <div class="bar-indicator" id="angleIndicator"></div>
+        <div class="bar-ticks">
+          <span>10°</span><span>80°</span>
+        </div>
+      </div>
+
+      <div class="bar-track bar-track--v" id="powerBarTrack" style="display:none">
+        <div class="bar-fill" id="powerFill"></div>
+      </div>
+
+      <div class="aim-tap-hint">👆 画面のどこでもタップ 👆</div>
+    </div>
+  </section>
+
+  <!-- ============ リザルト画面 ============ -->
+  <section id="screen-result" class="screen">
+    <div class="panel result-panel">
+      <div class="record-badge" id="recordBadge">NEW RECORD !</div>
+      <div class="panel-eyebrow">RESULT</div>
+      <h2 class="panel-title">きろく</h2>
+      <div class="result-distance"><span id="resultDistance">0.0</span><small>m</small></div>
+      <div class="result-plane" id="resultPlaneName"></div>
+      <div class="result-buttons">
+        <button id="btnRetry" class="btn btn--primary">もういちど</button>
+        <button id="btnResultTitle" class="btn btn--secondary">タイトルへ</button>
+      </div>
+    </div>
+    <div id="confettiLayer" class="confetti-layer"></div>
+  </section>
+
+</div>
+
+<div id="adBanner" class="ad-banner">
+  <!-- admax -->
+  <script src="https://adm.shinobi.jp/s/8a495d941206bf0c34aff9559f8d2cea"></script>
+  <!-- admax -->
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
