@@ -1,0 +1,628 @@
+/* ============================================================
+   紙ヒコーキ ディスタンス - style.css
+   デザイントークン：
+   --sky-top / --sky-bottom : 空の背景グラデーション
+   --paper                  : 紙のような明るいカード背景
+   --ink                    : 基本の文字色
+   --coral / --mint / --gold: ポップなアクセント3色
+   ============================================================ */
+
+:root{
+  --sky-top:#8FD3FF;
+  --sky-bottom:#EAF7FF;
+  --paper:#FFFDF6;
+  --paper-line:#E7E1D2;
+  --ink:#2B2B33;
+  --ink-soft:#6B6B78;
+  --coral:#FF6F61;
+  --coral-deep:#E4543F;
+  --mint:#2FB6A6;
+  --mint-deep:#1F9686;
+  --gold:#FFC94D;
+  --gold-deep:#E8A400;
+  --shadow: 0 8px 20px rgba(43,43,51,.14);
+  --shadow-sm: 0 4px 10px rgba(43,43,51,.10);
+  --radius-lg: 26px;
+  --radius-md: 18px;
+  --radius-sm: 12px;
+  --font-display:'Zen Maru Gothic', sans-serif;
+  --font-body:'Noto Sans JP', sans-serif;
+}
+
+*{ box-sizing:border-box; }
+
+html,body{
+  margin:0; padding:0;
+  width:100%; height:100%;
+  overflow:hidden;
+  font-family: var(--font-body);
+  color:var(--ink);
+  background:var(--sky-bottom);
+  /* スマホでの誤操作防止 */
+  -webkit-user-select:none;
+  user-select:none;
+  -webkit-touch-callout:none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body{
+  display:flex;
+  flex-direction:column;
+  height:100vh;
+  height:100dvh;
+}
+
+button, .btn{
+  font-family: var(--font-display);
+}
+
+/* #appは広告帯を除いた残り高さ全部を使う（広告帯があってもコンテンツが隠れない） */
+#app{
+  position:relative;
+  width:100%;
+  flex:1 1 auto;
+  min-height:0;
+  overflow:hidden;
+}
+
+/* ---------- 広告帯（画面最下部に常時固定） ---------- */
+.ad-banner{
+  flex:0 0 auto;
+  width:100%;
+  min-height:50px;
+  background: var(--paper);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  box-shadow: 0 -2px 8px rgba(43,43,51,.10);
+  position:relative;
+  z-index:50;
+}
+
+/* ---------- 画面切り替え共通 ---------- */
+.screen{
+  position:absolute;
+  inset:0;
+  display:none;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+}
+.screen.is-active{ display:flex; }
+
+/* ============================================================
+   タイトル画面
+   ============================================================ */
+#screen-title{
+  background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-bottom) 70%);
+}
+.sky{ position:absolute; inset:0; overflow:hidden; pointer-events:none; }
+.cloud{
+  position:absolute;
+  background:#fff;
+  opacity:.85;
+  border-radius:50%;
+  filter: blur(.5px);
+}
+.cloud::before, .cloud::after{
+  content:''; position:absolute; background:#fff; border-radius:50%;
+}
+.cloud--a{ width:90px; height:34px; top:14%; left:-20%; animation: driftCloud 26s linear infinite; }
+.cloud--a::before{ width:50px; height:50px; top:-22px; left:10px; }
+.cloud--a::after{ width:40px; height:40px; top:-14px; left:44px; }
+.cloud--b{ width:70px; height:26px; top:26%; left:-40%; animation: driftCloud 34s linear infinite; animation-delay:-8s; }
+.cloud--b::before{ width:36px; height:36px; top:-16px; left:8px; }
+.cloud--b::after{ width:30px; height:30px; top:-10px; left:32px; }
+.cloud--c{ width:110px; height:38px; top:8%; left:-60%; animation: driftCloud 40s linear infinite; animation-delay:-20s; }
+.cloud--c::before{ width:56px; height:56px; top:-26px; left:14px; }
+.cloud--c::after{ width:44px; height:44px; top:-16px; left:56px; }
+@keyframes driftCloud{ to{ transform: translateX(220vw); } }
+
+.sun{
+  position:absolute; top:8%; right:8%;
+  width:70px; height:70px; border-radius:50%;
+  background: radial-gradient(circle, #FFF3CE 0%, var(--gold) 70%);
+  box-shadow: 0 0 40px rgba(255,201,77,.6);
+}
+
+.title-wrap{
+  position:relative;
+  z-index:2;
+  display:flex; flex-direction:column; align-items:center;
+  gap:10px;
+  padding: 24px;
+  text-align:center;
+}
+
+.fold-badge{
+  font-family:var(--font-display);
+  font-size:12px;
+  letter-spacing:.14em;
+  background: var(--paper);
+  color:var(--ink-soft);
+  padding:6px 14px;
+  border-radius:100px;
+  box-shadow: var(--shadow-sm);
+}
+
+.game-title{
+  font-family:var(--font-display);
+  font-weight:900;
+  font-size: clamp(30px, 9vw, 44px);
+  line-height:1.15;
+  margin:6px 0 0;
+  color:var(--ink);
+  text-shadow: 3px 3px 0 rgba(255,255,255,.7);
+}
+.game-title span{
+  color:var(--coral);
+  font-size:.82em;
+}
+
+.title-plane-stage{
+  width:min(78vw, 320px);
+  height:140px;
+  margin: 6px 0 8px;
+}
+#titlePlaneCanvas{ width:100%; height:100%; display:block; }
+
+.title-buttons{
+  display:flex; flex-direction:column; gap:12px;
+  width: min(80vw, 300px);
+}
+
+/* ============================================================
+   ボタン共通
+   ============================================================ */
+.btn{
+  appearance:none; border:none;
+  border-radius: 100px;
+  padding: 15px 20px;
+  font-size:17px;
+  font-weight:700;
+  cursor:pointer;
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.btn:active{ transform: translateY(2px) scale(.98); }
+
+.btn--primary{
+  background: linear-gradient(180deg, var(--coral) 0%, var(--coral-deep) 100%);
+  color:#fff;
+  box-shadow: 0 6px 0 var(--coral-deep), var(--shadow-sm);
+}
+.btn--primary:active{ box-shadow: 0 2px 0 var(--coral-deep); }
+
+.btn--secondary{
+  background: var(--paper);
+  color: var(--ink);
+  border:2px solid var(--paper-line);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn--ghost{
+  background: transparent;
+  color: var(--ink-soft);
+  text-decoration: underline;
+  padding: 8px 14px;
+}
+
+.btn--lg{ padding:18px 22px; font-size:19px; }
+
+.btn--pulse{ animation: pulseBtn 1.4s ease-in-out infinite; }
+@keyframes pulseBtn{
+  0%,100%{ transform:scale(1); }
+  50%{ transform:scale(1.045); }
+}
+
+/* ============================================================
+   共通パネル（ハイスコア・リザルト）
+   ============================================================ */
+#screen-highscore, #screen-result{
+  background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-bottom) 60%);
+}
+.panel{
+  position:relative;
+  width:min(88vw, 380px);
+  background: var(--paper);
+  border-radius: var(--radius-lg);
+  padding: 26px 22px 24px;
+  box-shadow: var(--shadow);
+  text-align:center;
+}
+.panel-eyebrow{
+  font-family:var(--font-display);
+  font-size:12px;
+  letter-spacing:.18em;
+  color: var(--mint-deep);
+  font-weight:700;
+}
+.panel-title{
+  font-family:var(--font-display);
+  font-size:26px;
+  font-weight:900;
+  margin: 4px 0 18px;
+}
+
+.highscore-list{
+  list-style:none; margin:0 0 20px; padding:0;
+  display:flex; flex-direction:column; gap:8px;
+}
+.highscore-list li{
+  display:flex; align-items:center; gap:10px;
+  background:#FBF8EF;
+  border:1px solid var(--paper-line);
+  border-radius: var(--radius-sm);
+  padding:10px 14px;
+  text-align:left;
+}
+.highscore-list .rank{
+  font-family:var(--font-display);
+  font-weight:900;
+  width:26px; text-align:center;
+  color: var(--ink-soft);
+  flex-shrink:0;
+}
+.highscore-list li:nth-child(1) .rank{ color:var(--gold-deep); font-size:20px; }
+.highscore-list li:nth-child(2) .rank{ color:#9AA0AA; font-size:18px; }
+.highscore-list li:nth-child(3) .rank{ color:#C08A5A; font-size:17px; }
+.highscore-list .hs-plane{
+  flex:1;
+  font-size:13px;
+  color:var(--ink-soft);
+}
+.highscore-list .hs-dist{
+  font-family:var(--font-display);
+  font-weight:700;
+  font-size:16px;
+  color:var(--coral-deep);
+  white-space:nowrap;
+}
+.highscore-empty{
+  color:var(--ink-soft);
+  font-size:14px;
+  padding: 10px 0 20px;
+}
+
+/* ============================================================
+   機体選択画面
+   ============================================================ */
+#screen-select{
+  background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-bottom) 55%);
+  overflow-y:auto;
+  padding-top: calc(env(safe-area-inset-top) + 20px);
+  padding-bottom: 20px;
+}
+.select-wrap{
+  width:100%;
+  display:flex; flex-direction:column; align-items:center;
+  padding: 0 18px;
+}
+.select-title{
+  font-family:var(--font-display);
+  font-size:22px;
+  font-weight:900;
+  margin: 4px 0 18px;
+}
+.plane-list{
+  width:min(92vw, 420px);
+  display:flex; flex-direction:column; gap:14px;
+}
+.plane-card{
+  background:var(--paper);
+  border-radius: var(--radius-lg);
+  padding:16px 18px;
+  box-shadow: var(--shadow-sm);
+  border: 3px solid transparent;
+  display:flex; flex-direction:column; gap:10px;
+  text-align:left;
+  cursor:pointer;
+  transition: transform .12s ease, border-color .12s ease;
+}
+.plane-card:active{ transform: scale(.98); }
+.plane-card-top{
+  display:flex; align-items:center; gap:12px;
+}
+.plane-icon{
+  width:48px; height:48px; flex-shrink:0;
+  border-radius:14px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:24px;
+}
+.plane-name{
+  font-family:var(--font-display);
+  font-weight:900;
+  font-size:17px;
+}
+.plane-desc{
+  font-size:12px;
+  color:var(--ink-soft);
+  margin-top:2px;
+}
+.plane-stats{
+  display:flex; flex-direction:column; gap:6px;
+}
+.stat-row{
+  display:grid;
+  grid-template-columns: 52px 1fr 22px;
+  align-items:center;
+  gap:8px;
+  font-size:11px;
+  color:var(--ink-soft);
+}
+.stat-bar{
+  height:8px;
+  border-radius:6px;
+  background:#EEE9DA;
+  overflow:hidden;
+}
+.stat-bar-fill{
+  height:100%;
+  border-radius:6px;
+}
+
+/* ============================================================
+   ゲーム画面
+   ============================================================ */
+#screen-game{
+  padding:0;
+  background:#000;
+  overflow:hidden;
+}
+#gameCanvas{
+  position:absolute; inset:0;
+  width:100%; height:100%;
+  display:block;
+}
+
+.hud{
+  position:absolute;
+  top: calc(env(safe-area-inset-top) + 10px);
+  left:0; right:0;
+  display:flex; align-items:flex-start; justify-content:space-between;
+  padding: 0 14px;
+  z-index:5;
+  pointer-events:none;
+}
+.hud-back{
+  pointer-events:auto;
+  width:40px; height:40px;
+  border-radius:50%;
+  border:none;
+  background: rgba(255,253,246,.92);
+  box-shadow: var(--shadow-sm);
+  font-size:18px;
+  font-weight:700;
+  color:var(--ink);
+}
+.wind-indicator{
+  pointer-events:auto;
+  background: rgba(255,253,246,.92);
+  border-radius: 100px;
+  padding:8px 16px;
+  box-shadow: var(--shadow-sm);
+  display:flex; align-items:center; gap:8px;
+  font-family:var(--font-display);
+  /* 「無風」〜「向かい風」まで文字数が変わっても幅がぷるぷる動かないよう固定 */
+  width: 132px;
+  box-sizing: border-box;
+  flex-shrink:0;
+}
+.wind-arrow{
+  font-size:16px;
+  color: var(--mint-deep);
+  transition: transform .4s ease, color .3s ease;
+  display:inline-block;
+  flex-shrink:0;
+}
+.wind-text{ display:flex; flex-direction:column; line-height:1.1; flex:1; }
+.wind-text span:first-child{
+  font-size:11px; color:var(--ink-soft);
+  display:inline-block;
+  width: 4.4em; /* 「向かい風」相当の幅を確保 */
+}
+.wind-text span:last-child{ font-size:15px; font-weight:700; }
+
+.hud-right{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  gap:6px;
+  flex-shrink:0;
+}
+
+.distance-live{
+  pointer-events:none;
+  background: rgba(255,253,246,.92);
+  border-radius: 100px;
+  padding:8px 16px;
+  box-shadow: var(--shadow-sm);
+  font-family:var(--font-display);
+  font-weight:900;
+  font-size:18px;
+  color:var(--coral-deep);
+  /* 向かい風〜10000.0mまでを想定した幅で固定し、桁数が変わってもぷるぷる動かないようにする */
+  width: 132px;
+  box-sizing: border-box;
+  text-align:right;
+  font-variant-numeric: tabular-nums;
+}
+.distance-live span{ font-size:11px; margin-left:2px; color:var(--ink-soft); }
+
+.tap-hint{
+  position:absolute;
+  top: 30%;
+  left:50%;
+  transform: translate(-50%,-50%);
+  z-index:4;
+  font-family:var(--font-display);
+  font-weight:700;
+  font-size:15px;
+  color:#fff;
+  background: rgba(43,43,51,.55);
+  padding:10px 18px;
+  border-radius:100px;
+  opacity:0;
+  transition: opacity .3s ease;
+  pointer-events:none;
+  white-space:nowrap;
+}
+.tap-hint.is-visible{ opacity:1; animation: hintBob 1s ease-in-out infinite; }
+@keyframes hintBob{ 0%,100%{ transform: translate(-50%,-50%);} 50%{ transform: translate(-50%,-58%);} }
+
+.debug-info{
+  font-family: monospace;
+  font-size:11px;
+  line-height:1.4;
+  color: rgba(255,255,255,.85);
+  background: rgba(43,43,51,.45);
+  padding:4px 8px;
+  border-radius:8px;
+  pointer-events:none;
+  width: 132px;
+  box-sizing: border-box;
+  text-align:right;
+}
+.debug-info div{ white-space:nowrap; }
+
+.aim-tap-hint{
+  font-family:var(--font-display);
+  font-weight:700;
+  font-size:14px;
+  color: var(--ink-soft);
+  text-align:center;
+  animation: pulseBtn 1.4s ease-in-out infinite;
+}
+
+.aim-panel{
+  position:absolute;
+  left:0; right:0; bottom:0;
+  z-index:6;
+  background: var(--paper);
+  border-radius: 28px 28px 0 0;
+  padding: 20px 24px calc(env(safe-area-inset-bottom) + 20px);
+  box-shadow: 0 -6px 24px rgba(0,0,0,.18);
+  display:flex; flex-direction:column; align-items:center; gap:16px;
+}
+.aim-label{
+  font-family:var(--font-display);
+  font-weight:700;
+  font-size:14px;
+  text-align:center;
+  color:var(--ink);
+}
+
+.bar-track{ position:relative; }
+.bar-track--h{
+  width:100%;
+  max-width:320px;
+  height:16px;
+  background:#EEE9DA;
+  border-radius:100px;
+  overflow:visible;
+}
+.bar-indicator{
+  position:absolute;
+  top:50%; left:10%;
+  width:20px; height:20px;
+  margin-top:-10px; margin-left:-10px;
+  border-radius:50%;
+  background: var(--coral);
+  border:3px solid #fff;
+  box-shadow: var(--shadow-sm);
+}
+.bar-ticks{
+  display:flex; justify-content:space-between;
+  font-size:11px; color:var(--ink-soft);
+  margin-top:6px;
+}
+
+.bar-track--v{
+  width:26px;
+  height:140px;
+  background:#EEE9DA;
+  border-radius:100px;
+  overflow:hidden;
+  display:flex; align-items:flex-end;
+}
+.bar-fill{
+  width:100%;
+  height:5%;
+  background: linear-gradient(180deg, var(--gold) 0%, var(--coral) 100%);
+  border-radius:100px;
+}
+
+/* ============================================================
+   リザルト画面
+   ============================================================ */
+.result-panel{ padding-top: 34px; }
+.record-badge{
+  position:absolute;
+  top:-16px; left:50%;
+  transform: translateX(-50%) rotate(-4deg);
+  background: linear-gradient(180deg, var(--gold) 0%, var(--gold-deep) 100%);
+  color:#fff;
+  font-family:var(--font-display);
+  font-weight:900;
+  font-size:13px;
+  padding:8px 18px;
+  border-radius:100px;
+  box-shadow: var(--shadow-sm);
+  opacity:0;
+  transition: opacity .2s ease;
+  white-space:nowrap;
+}
+.record-badge.is-visible{ opacity:1; animation: badgePop .5s ease; }
+@keyframes badgePop{
+  0%{ transform: translateX(-50%) rotate(-4deg) scale(0); }
+  60%{ transform: translateX(-50%) rotate(-4deg) scale(1.15); }
+  100%{ transform: translateX(-50%) rotate(-4deg) scale(1); }
+}
+
+.result-distance{
+  font-family:var(--font-display);
+  font-weight:900;
+  font-size:52px;
+  color: var(--coral-deep);
+  line-height:1;
+  margin: 4px 0 6px;
+}
+.result-distance small{ font-size:18px; color:var(--ink-soft); margin-left:4px; }
+.result-plane{
+  font-size:13px;
+  color:var(--ink-soft);
+  margin-bottom:22px;
+}
+.result-buttons{
+  display:flex; flex-direction:column; gap:12px;
+}
+
+.confetti-layer{
+  position:absolute; inset:0;
+  pointer-events:none;
+  overflow:hidden;
+  z-index:1;
+}
+.confetti-piece{
+  position:absolute;
+  top:-10px;
+  width:8px; height:14px;
+  opacity:.9;
+  animation: confettiFall linear forwards;
+}
+@keyframes confettiFall{
+  to{ transform: translateY(115vh) rotate(540deg); opacity:0; }
+}
+
+/* 小さい画面向け微調整 */
+@media (max-height: 620px){
+  .title-plane-stage{ height:100px; }
+  .game-title{ font-size: clamp(24px,8vw,34px); }
+}
