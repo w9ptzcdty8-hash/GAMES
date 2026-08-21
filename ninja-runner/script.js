@@ -930,7 +930,8 @@ function triggerGameOver() {
 // ========================================
 
 function handleInput(e) {
-    if (e.target && (e.target.tagName === 'BUTTON' || e.target.classList.contains('icon-btn'))) return;
+    // BUTTONタグ、Aタグ（リンク）、.icon-btnは入力処理から除外する
+    if (e.target && (e.target.tagName === 'BUTTON' || e.target.tagName === 'A' || e.target.closest('a') || e.target.classList.contains('icon-btn'))) return;
 
     if (e.type === 'touchstart') {
         e.preventDefault();
