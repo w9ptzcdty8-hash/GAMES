@@ -73,16 +73,13 @@ body {
     font-variant-numeric: tabular-nums; /* 数字の等幅表示 */
 }
 
+/* ダンゴ表示アイコン（カクつき防止のため軽量表示に最適化） */
 .dango-hud-icon {
     font-size: 22px;
     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
-    animation: dangoPop 0.3s ease-out;
-}
-
-@keyframes dangoPop {
-    0% { transform: scale(0); }
-    80% { transform: scale(1.3); }
-    100% { transform: scale(1); }
+    opacity: 1;
+    transition: opacity 0.15s ease-out;
+    will-change: opacity;
 }
 
 .icon-btn {
