@@ -15,7 +15,7 @@ document.addEventListener("DOMContentLoaded", () => {
 // DOM要素（init内で取得）
 let canvas, ctx;
 let startScreen, pauseScreen, gameOverScreen, topControlBar;
-let scoreText, titleHighScoreValue, overHighScore, finalScoreText;
+let scoreText, titleHighScoreValue, overHighScore, finalScoreText, dangoIcon;
 let startBtn, pauseBtn, resumeBtn, pauseHomeBtn, restartBtn, overHomeBtn;
 
 function init() {
@@ -31,6 +31,7 @@ function init() {
     gameOverScreen = document.getElementById('gameOverScreen');
     topControlBar = document.getElementById('topControlBar');
     scoreText = document.getElementById('scoreText');
+    dangoIcon = document.getElementById('dangoIcon');
     titleHighScoreValue = document.getElementById('titleHighScoreValue');
     overHighScore = document.getElementById('overHighScore');
     finalScoreText = document.getElementById('finalScoreText');
@@ -121,6 +122,34 @@ class SoundFX {
         gain.connect(this.ctx.destination);
         osc.start();
         osc.stop(this.ctx.currentTime + 0.3);
+    }
+    playPowerUp() {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(900, this.ctx.currentTime + 0.2);
+        gain.gain.setValueAtTime(0.35, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.2);
+    }
+    playGuard() {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+        osc.frequency.linearRampToValueAtTime(200, this.ctx.currentTime + 0.25);
+        gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.25);
     }
 }
 const sfx = new SoundFX();
@@ -228,12 +257,17 @@ const player = {
     jumpCount: 0,
     maxJumps: 2,
     animFrame: 0,
+    hasDango: false,
+    invincibleFrames: 0, // 被弾後の無敵（点滅）フレーム数
 
     reset() {
         this.y = 150;
         this.velocityY = 0;
         this.isGrounded = false;
         this.jumpCount = 0;
+        this.hasDango = false;
+        this.invincibleFrames = 0;
+        if (dangoIcon) dangoIcon.classList.add('hidden');
     },
 
     jump(force = this.jumpForce, isBounce = false) {
@@ -254,9 +288,18 @@ const player = {
         this.velocityY += this.gravity;
         this.y += this.velocityY;
         this.animFrame += 0.2;
+
+        if (this.invincibleFrames > 0) {
+            this.invincibleFrames--;
+        }
     },
 
     draw() {
+        // 被弾後の無敵点滅（4フレーム周期で点滅）
+        if (this.invincibleFrames > 0 && Math.floor(this.invincibleFrames / 4) % 2 === 0) {
+            return;
+        }
+
         ctx.save();
         ctx.translate(this.x, this.y);
 
@@ -439,10 +482,10 @@ class FlyingShuriken {
             // 上端（画面右側1/3の幅から出現）
             this.x = rightAreaMinX + Math.random() * (rightAreaMaxX - rightAreaMinX);
             this.y = -40;
-            // 【変更】 30度〜45度の範囲で斜め左下へ飛ぶ（度数をラジアンに変換）
+            // 15度〜40度の範囲で斜め左下へ飛ぶ
             const minDeg = 15;
             const maxDeg = 40;
-            const deg = minDeg + Math.random() * (maxDeg - minDeg); // 30 ~ 45度
+            const deg = minDeg + Math.random() * (maxDeg - minDeg);
             const angle = deg * (Math.PI / 180);
 
             this.speedX = baseSpeed * Math.cos(angle);
@@ -452,10 +495,10 @@ class FlyingShuriken {
             // 下端（画面右側1/3の幅から出現）
             this.x = rightAreaMinX + Math.random() * (rightAreaMaxX - rightAreaMinX);
             this.y = CANVAS_HEIGHT + 10;
-            // 【変更】 30度〜45度の範囲で斜め左上へ飛ぶ（下端からのためマイナス）
+            // 30度〜40度の範囲で斜め左上へ飛ぶ
             const minDeg = 30;
             const maxDeg = 40;
-            const deg = minDeg + Math.random() * (maxDeg - minDeg); // 30 ~ 45度
+            const deg = minDeg + Math.random() * (maxDeg - minDeg);
             const angle = -deg * (Math.PI / 180);
 
             this.speedX = baseSpeed * Math.cos(angle);
@@ -511,6 +554,78 @@ class FlyingShuriken {
 
 
 // ========================================
+// ダンゴ（回復・バリアアイテム）
+// ========================================
+
+class Dango {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.width = 24;
+        this.height = 36;
+        this.floatFrame = Math.random() * Math.PI * 2;
+    }
+
+    update() {
+        this.x -= gameSpeed;
+        this.floatFrame += 0.08;
+    }
+
+    draw() {
+        ctx.save();
+        // 浮遊アニメーション
+        const floatY = Math.sin(this.floatFrame) * 4;
+        ctx.translate(this.x + this.width / 2, this.y + this.height / 2 + floatY);
+
+        // --- 竹串の描画 ---
+        // 串の外枠（濃いブラウンで強調）
+        ctx.strokeStyle = '#2b1704';
+        ctx.lineWidth = 4.5;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(0, -14); // 上端（ピンク団子の上に少し突き出る先端）
+        ctx.lineTo(0, 18);  // 下端（緑団子の下にしっかり伸びる持ち手）
+        ctx.stroke();
+
+        // 串の内側（竹・木目風の色）
+        ctx.strokeStyle = '#d7a15c';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(0, -14);
+        ctx.lineTo(0, 18);
+        ctx.stroke();
+
+        // --- 団子（3つの玉）の描画 ---
+        ctx.strokeStyle = '#211103';
+        ctx.lineWidth = 1.8;
+
+        // 1. ピンク団子（一番上）
+        ctx.fillStyle = '#ff80ab';
+        ctx.beginPath();
+        ctx.arc(0, -8, 6.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // 2. 白団子（中央）
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(0, 0, 6.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // 3. 緑団子（一番下）
+        ctx.fillStyle = '#00e676';
+        ctx.beginPath();
+        ctx.arc(0, 8, 6.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.restore();
+    }
+}
+
+
+// ========================================
 // 足場 & ギミック
 // ========================================
 
@@ -520,6 +635,7 @@ let springPads = [];
 let enemyNinjas = [];
 let crows = [];
 let flyingShurikens = [];
+let dangos = [];
 
 class Platform {
     constructor(x, y, width, height, type = 'roof') {
@@ -659,6 +775,7 @@ function initGame() {
     enemyNinjas = [];
     crows = [];
     flyingShurikens = [];
+    dangos = [];
 
     platforms.push(new Platform(0, 300, 600, 150, 'roof'));
 }
@@ -691,6 +808,8 @@ function spawnStageElements() {
         const gap = Math.random() * (maxGap - minGap) + minGap;
         const nextX = lastPlatform.x + lastPlatform.width + gap;
 
+        let createdPlatform = null;
+
         // 複雑な足場（800m解禁）
         if (allowComplex && rand < 0.3) {
             const bottomY = Math.random() * 50 + 320;
@@ -699,21 +818,28 @@ function spawnStageElements() {
 
             const bottomPlat = new Platform(nextX, bottomY, width, CANVAS_HEIGHT - bottomY, 'rail');
             platforms.push(bottomPlat);
+            createdPlatform = bottomPlat;
+
             platforms.push(new Platform(nextX + 40, topY, width - 80, 10, 'wire'));
 
             if (allowEnemy && Math.random() < 0.5) {
                 enemyNinjas.push(new EnemyNinja(bottomPlat));
             }
         }
-        // 一本橋連続足場（1300m以上で高難易度生成）
+            
+        // 一本橋連続足場（1300m以上で高難易度生成: 1〜3本でランダム生成）
         else if (score >= 1300 && rand > 0.75) {
             let poleX = nextX;
-            for (let i = 0; i < 3; i++) {
+            const poleCount = Math.floor(Math.random() * 3) + 1; // ★ 1〜3 のランダムな整数を取得
+            for (let i = 0; i < poleCount; i++) {
                 const poleY = Math.random() * 60 + 250;
-                platforms.push(new Platform(poleX, poleY, 75, CANVAS_HEIGHT - poleY, 'pole'));
+                const p = new Platform(poleX, poleY, 75, CANVAS_HEIGHT - poleY, 'pole');
+                platforms.push(p);
+                if (i === Math.floor(poleCount / 2)) createdPlatform = p;
                 poleX += 75 + Math.random() * 60 + 70;
             }
         }
+
         // 標準屋根足場
         else {
             const heightVariation = (score < 300) ? 50 : 100;
@@ -722,17 +848,59 @@ function spawnStageElements() {
 
             const newPlat = new Platform(nextX, nextY, width, CANVAS_HEIGHT - nextY, 'roof');
             platforms.push(newPlat);
+            createdPlatform = newPlat;
+
+            // 設置済みのアイテム/障害物の位置（重なり防止用）
+            const placedXList = [];
 
             // 敵忍者（1000m解禁）
             if (allowEnemy && width > 220 && Math.random() < 0.45) {
-                enemyNinjas.push(new EnemyNinja(newPlat));
+                const enemy = new EnemyNinja(newPlat);
+                enemyNinjas.push(enemy);
+                placedXList.push(enemy.x + enemy.width / 2);
             } else {
-                // ジャンプ台（500m解禁）または トゲ（300m解禁）
+                // ギミック（トゲ/ジャンプ台）の配置箇所をランダム化
                 const randGimmick = Math.random();
-                if (allowSpring && randGimmick < 0.35) {
-                    springPads.push(new SpringPad(nextX + 40, nextY - 12));
-                } else if (allowSpike && randGimmick < 0.75) {
-                    obstacles.push(new Obstacle(nextX + width / 2, nextY - 25, 25, 25, 'spike'));
+                const margin = 30;
+                const minSpawnX = newPlat.x + margin;
+                const maxSpawnX = newPlat.x + newPlat.width - margin - 30;
+
+                if (maxSpawnX > minSpawnX) {
+                    if (allowSpring && randGimmick < 0.35) {
+                        const springX = minSpawnX + Math.random() * (maxSpawnX - minSpawnX);
+                        springPads.push(new SpringPad(springX, nextY - 12));
+                        placedXList.push(springX + 15);
+                    } else if (allowSpike && randGimmick < 0.75) {
+                        const spikeX = minSpawnX + Math.random() * (maxSpawnX - minSpawnX);
+                        obstacles.push(new Obstacle(spikeX, nextY - 25, 25, 25, 'spike'));
+                        placedXList.push(spikeX + 12.5);
+                    }
+                }
+            }
+
+            // ダンゴ（テスト確認用: 80%の確率で出現。本番時は 0.02 に変更してください）
+            // 既存ギミックと重ならない安全な位置を探して設置
+            if (!player.hasDango && Math.random() < 0.02) {
+                const margin = 35;
+                const minDangoX = newPlat.x + margin;
+                const maxDangoX = newPlat.x + newPlat.width - margin - 24;
+
+                if (maxDangoX > minDangoX) {
+                    let dangoX = minDangoX + Math.random() * (maxDangoX - minDangoX);
+                    let safe = true;
+
+                    // 既に置かれているギミック（トゲ・ジャンプ台・敵）と50px以上離れているかチェック
+                    for (const px of placedXList) {
+                        if (Math.abs((dangoX + 12) - px) < 50) {
+                            safe = false;
+                            break;
+                        }
+                    }
+
+                    if (safe) {
+                        const dangoY = newPlat.y - 45;
+                        dangos.push(new Dango(dangoX, dangoY));
+                    }
                 }
             }
         }
@@ -786,6 +954,21 @@ function drawBackground() {
 // ループ＆更新
 // ========================================
 
+function handleDamage() {
+    if (player.invincibleFrames > 0) return; // 無敵時間中はダメージ処理を行わない
+
+    if (player.hasDango) {
+        // ダンゴを持っている場合：無効化して無敵時間を付与
+        player.hasDango = false;
+        player.invincibleFrames = 90; // 約1.5秒（90フレーム）の点滅無敵
+        sfx.playGuard();
+        if (dangoIcon) dangoIcon.classList.add('hidden');
+    } else {
+        // ダンゴを持っていない場合：ゲームオーバー
+        triggerGameOver();
+    }
+}
+
 function update() {
     if (gameState !== 'PLAYING') return;
 
@@ -820,6 +1003,29 @@ function update() {
 
     if (!currentlyGrounded) player.isGrounded = false;
 
+    // ダンゴの獲得処理
+    for (let i = dangos.length - 1; i >= 0; i--) {
+        const d = dangos[i];
+        d.update();
+
+        if (
+            player.x < d.x + d.width &&
+            player.x + player.width > d.x &&
+            player.y < d.y + d.height &&
+            player.y + player.height > d.y
+        ) {
+            if (!player.hasDango) {
+                player.hasDango = true;
+                sfx.playPowerUp();
+                if (dangoIcon) dangoIcon.classList.remove('hidden');
+            }
+            dangos.splice(i, 1);
+            continue;
+        }
+
+        if (d.x + d.width < -50) dangos.splice(i, 1);
+    }
+
     for (let i = enemyNinjas.length - 1; i >= 0; i--) {
         const e = enemyNinjas[i];
         e.update();
@@ -831,7 +1037,7 @@ function update() {
             player.y + p < e.y + e.height &&
             player.y + player.height - p > e.y
         ) {
-            triggerGameOver();
+            handleDamage();
         }
 
         if (e.x + e.width < -100) enemyNinjas.splice(i, 1);
@@ -848,7 +1054,7 @@ function update() {
             player.y + p < c.y + c.height &&
             player.y + player.height - p > c.y
         ) {
-            triggerGameOver();
+            handleDamage();
         }
 
         if (c.x + c.width < -100) crows.splice(i, 1);
@@ -865,10 +1071,9 @@ function update() {
             player.y + p < fs.y + fs.height &&
             player.y + player.height - p > fs.y
         ) {
-            triggerGameOver();
+            handleDamage();
         }
 
-        // 画面外に出て消滅（上下左右の画面外）
         if (fs.x < -150 || fs.x > CANVAS_WIDTH + 200 || fs.y < -100 || fs.y > CANVAS_HEIGHT + 100) {
             flyingShurikens.splice(i, 1);
         }
@@ -902,12 +1107,13 @@ function update() {
             player.y + p < obs.y + obs.height &&
             player.y + player.height - p > obs.y
         ) {
-            triggerGameOver();
+            handleDamage();
         }
 
         if (obs.x + obs.width < -50) obstacles.splice(i, 1);
     }
 
+    // 穴に落下した場合はダンゴ保持関係なく即死（ゲームオーバー）
     if (player.y > CANVAS_HEIGHT + 60) {
         triggerGameOver();
     }
@@ -923,6 +1129,7 @@ function draw() {
     platforms.forEach(p => p.draw());
     springPads.forEach(s => s.draw());
     obstacles.forEach(o => o.draw());
+    dangos.forEach(d => d.draw());
     enemyNinjas.forEach(e => e.draw());
     crows.forEach(c => c.draw());
     flyingShurikens.forEach(fs => fs.draw());
