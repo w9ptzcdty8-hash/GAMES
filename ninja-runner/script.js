@@ -418,6 +418,99 @@ class Crow {
 
 
 // ========================================
+// 飛来する手裏剣（空中障害物）
+// ========================================
+
+class FlyingShuriken {
+    constructor(spawnSide) {
+        this.width = 26;
+        this.height = 26;
+        this.rotation = 0;
+
+        // ランダムなスピード（+3.5 ～ +6.5）
+        const randomSpeedOffset = 3.5 + Math.random() * 3.0;
+        const baseSpeed = gameSpeed + randomSpeedOffset;
+
+        // 画面右側 1/3 の範囲（X軸: 2/3 ~ 1.0 の領域）
+        const rightAreaMinX = CANVAS_WIDTH * (2 / 3);
+        const rightAreaMaxX = CANVAS_WIDTH;
+
+        if (spawnSide === 'top') {
+            // 上端（画面右側1/3の幅から出現）
+            this.x = rightAreaMinX + Math.random() * (rightAreaMaxX - rightAreaMinX);
+            this.y = -40;
+            // 【変更】 30度〜45度の範囲で斜め左下へ飛ぶ（度数をラジアンに変換）
+            const minDeg = 15;
+            const maxDeg = 40;
+            const deg = minDeg + Math.random() * (maxDeg - minDeg); // 30 ~ 45度
+            const angle = deg * (Math.PI / 180);
+
+            this.speedX = baseSpeed * Math.cos(angle);
+            this.speedY = baseSpeed * Math.sin(angle);
+
+        } else if (spawnSide === 'bottom') {
+            // 下端（画面右側1/3の幅から出現）
+            this.x = rightAreaMinX + Math.random() * (rightAreaMaxX - rightAreaMinX);
+            this.y = CANVAS_HEIGHT + 10;
+            // 【変更】 30度〜45度の範囲で斜め左上へ飛ぶ（下端からのためマイナス）
+            const minDeg = 30;
+            const maxDeg = 40;
+            const deg = minDeg + Math.random() * (maxDeg - minDeg); // 30 ~ 45度
+            const angle = -deg * (Math.PI / 180);
+
+            this.speedX = baseSpeed * Math.cos(angle);
+            this.speedY = baseSpeed * Math.sin(angle);
+
+        } else {
+            // 右端（縦方向は上側〜中央付近）
+            this.x = CANVAS_WIDTH + 30;
+            this.y = Math.random() * 220 + 50;
+            // 水平〜斜め方向へ飛ぶ
+            const maxAngle = Math.PI / 5.5;
+            const angle = (Math.random() * 2 - 1) * maxAngle;
+            this.speedX = baseSpeed * Math.cos(angle);
+            this.speedY = baseSpeed * Math.sin(angle);
+        }
+    }
+
+    update() {
+        this.x -= this.speedX;
+        this.y += this.speedY;
+        this.rotation += 0.35;
+    }
+
+    draw() {
+        ctx.save();
+        ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
+        ctx.rotate(this.rotation);
+
+        // 濃い緑（#00e676）と光彩効果で視認性をアップ
+        ctx.shadowColor = '#00e676';
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = '#00e676';
+        for (let i = 0; i < 4; i++) {
+            ctx.rotate(Math.PI / 2);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(-4, -10);
+            ctx.lineTo(0, -15);
+            ctx.lineTo(4, -10);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(0, 0, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+    }
+}
+
+
+// ========================================
 // 足場 & ギミック
 // ========================================
 
@@ -426,6 +519,7 @@ let obstacles = [];
 let springPads = [];
 let enemyNinjas = [];
 let crows = [];
+let flyingShurikens = [];
 
 class Platform {
     constructor(x, y, width, height, type = 'roof') {
@@ -501,43 +595,20 @@ class Obstacle {
         this.width = width;
         this.height = height;
         this.type = type;
-        this.rotation = 0;
     }
 
     update() {
         this.x -= gameSpeed;
-        if (this.type === 'shuriken') {
-            this.rotation += 0.2;
-        }
     }
 
     draw() {
-        if (this.type === 'spike') {
-            ctx.fillStyle = '#ff3d00';
-            ctx.beginPath();
-            ctx.moveTo(this.x, this.y + this.height);
-            ctx.lineTo(this.x + this.width / 2, this.y);
-            ctx.lineTo(this.x + this.width, this.y + this.height);
-            ctx.closePath();
-            ctx.fill();
-        } else if (this.type === 'shuriken') {
-            ctx.save();
-            ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
-            ctx.rotate(this.rotation);
-            ctx.fillStyle = '#00e5ff';
-
-            for (let i = 0; i < 4; i++) {
-                ctx.rotate(Math.PI / 2);
-                ctx.beginPath();
-                ctx.moveTo(0, 0);
-                ctx.lineTo(-5, -15);
-                ctx.lineTo(0, -22);
-                ctx.lineTo(5, -15);
-                ctx.closePath();
-                ctx.fill();
-            }
-            ctx.restore();
-        }
+        ctx.fillStyle = '#ff3d00';
+        ctx.beginPath();
+        ctx.moveTo(this.x, this.y + this.height);
+        ctx.lineTo(this.x + this.width / 2, this.y);
+        ctx.lineTo(this.x + this.width, this.y + this.height);
+        ctx.closePath();
+        ctx.fill();
     }
 }
 
@@ -587,6 +658,7 @@ function initGame() {
     springPads = [];
     enemyNinjas = [];
     crows = [];
+    flyingShurikens = [];
 
     platforms.push(new Platform(0, 300, 600, 150, 'roof'));
 }
@@ -597,42 +669,29 @@ function spawnStageElements() {
 
     if (lastPlatform.x + lastPlatform.width < CANVAS_WIDTH + 300) {
 
-        let minGap, maxGap, minWidth, maxWidth, allowObstacles, allowComplex, allowEnemy, allowCrow;
+        // 解禁タイミングの制御フラグ
+        const allowCrow = score >= 200;           // 200m: カラス
+        const allowSpike = score >= 300;          // 300m: トゲ
+        const allowSpring = score >= 500;         // 500m: ジャンプ台
+        const allowComplex = score >= 800;        // 800m: 複雑な足場
+        const allowEnemy = score >= 1000;         // 1000m: 敵忍者
+        const allowFlyingShuriken = score >= 1300; // 1300m: 飛来する手裏剣
 
-        if (score < 300) {
-            minGap = 60; maxGap = 100;
-            minWidth = 260; maxWidth = 420;
-            allowObstacles = false;
-            allowComplex = false;
-            allowEnemy = false;
-            allowCrow = false;
-        } else if (score < 800) {
-            minGap = 80; maxGap = 120;
-            minWidth = 220; maxWidth = 350;
-            allowObstacles = true;
-            allowComplex = false;
-            allowEnemy = false;
-            allowCrow = true;
-        } else if (score < 1500) {
-            minGap = 90; maxGap = 140;
-            minWidth = 180; maxWidth = 300;
-            allowObstacles = true;
-            allowComplex = true;
-            allowEnemy = true;
-            allowCrow = true;
-        } else {
-            minGap = 100; maxGap = 160;
-            minWidth = 140; maxWidth = 260;
-            allowObstacles = true;
-            allowComplex = true;
-            allowEnemy = true;
-            allowCrow = true;
+        // 足場間隔・幅の設定
+        let minGap = 60, maxGap = 100, minWidth = 260, maxWidth = 420;
+        if (score >= 1300) {
+            minGap = 80; maxGap = 160; minWidth = 180; maxWidth = 350;
+        } else if (score >= 800) {
+            minGap = 80; maxGap = 140; minWidth = 200; maxWidth = 350;
+        } else if (score >= 300) {
+            minGap = 70; maxGap = 120; minWidth = 220; maxWidth = 350;
         }
 
         const rand = Math.random();
         const gap = Math.random() * (maxGap - minGap) + minGap;
         const nextX = lastPlatform.x + lastPlatform.width + gap;
 
+        // 複雑な足場（800m解禁）
         if (allowComplex && rand < 0.3) {
             const bottomY = Math.random() * 50 + 320;
             const topY = bottomY - 140;
@@ -646,7 +705,8 @@ function spawnStageElements() {
                 enemyNinjas.push(new EnemyNinja(bottomPlat));
             }
         }
-        else if (score >= 1500 && rand > 0.7) {
+        // 一本橋連続足場（1300m以上で高難易度生成）
+        else if (score >= 1300 && rand > 0.75) {
             let poleX = nextX;
             for (let i = 0; i < 3; i++) {
                 const poleY = Math.random() * 60 + 250;
@@ -654,28 +714,43 @@ function spawnStageElements() {
                 poleX += 75 + Math.random() * 60 + 70;
             }
         }
+        // 標準屋根足場
         else {
-            const heightVariation = (score < 300) ? 60 : 110;
+            const heightVariation = (score < 300) ? 50 : 100;
             const nextY = Math.min(Math.max(lastPlatform.y + (Math.random() * heightVariation - heightVariation / 2), 200), 360);
             const width = Math.random() * (maxWidth - minWidth) + minWidth;
 
             const newPlat = new Platform(nextX, nextY, width, CANVAS_HEIGHT - nextY, 'roof');
             platforms.push(newPlat);
 
+            // 敵忍者（1000m解禁）
             if (allowEnemy && width > 220 && Math.random() < 0.45) {
                 enemyNinjas.push(new EnemyNinja(newPlat));
-            } else if (allowObstacles) {
-                if (allowComplex && Math.random() < 0.3) {
+            } else {
+                // ジャンプ台（500m解禁）または トゲ（300m解禁）
+                const randGimmick = Math.random();
+                if (allowSpring && randGimmick < 0.35) {
                     springPads.push(new SpringPad(nextX + 40, nextY - 12));
-                } else if (Math.random() < 0.5) {
+                } else if (allowSpike && randGimmick < 0.75) {
                     obstacles.push(new Obstacle(nextX + width / 2, nextY - 25, 25, 25, 'spike'));
                 }
             }
         }
 
+        // カラス（200m解禁）
         if (allowCrow && Math.random() < 0.35) {
             const crowY = Math.random() * 120 + 100;
             crows.push(new Crow(CANVAS_WIDTH + 100, crowY));
+        }
+
+        // 飛来する手裏剣（1300m解禁: 画面右側1/3範囲の 上・下・右端から出現）
+        if (allowFlyingShuriken && Math.random() < 0.5) {
+            const randSide = Math.random();
+            let spawnSide = 'right';
+            if (randSide < 0.35) spawnSide = 'top';
+            else if (randSide < 0.7) spawnSide = 'bottom';
+
+            flyingShurikens.push(new FlyingShuriken(spawnSide));
         }
     }
 }
@@ -779,6 +854,26 @@ function update() {
         if (c.x + c.width < -100) crows.splice(i, 1);
     }
 
+    for (let i = flyingShurikens.length - 1; i >= 0; i--) {
+        const fs = flyingShurikens[i];
+        fs.update();
+
+        const p = 5;
+        if (
+            player.x + p < fs.x + fs.width &&
+            player.x + player.width - p > fs.x &&
+            player.y + p < fs.y + fs.height &&
+            player.y + player.height - p > fs.y
+        ) {
+            triggerGameOver();
+        }
+
+        // 画面外に出て消滅（上下左右の画面外）
+        if (fs.x < -150 || fs.x > CANVAS_WIDTH + 200 || fs.y < -100 || fs.y > CANVAS_HEIGHT + 100) {
+            flyingShurikens.splice(i, 1);
+        }
+    }
+
     for (let i = springPads.length - 1; i >= 0; i--) {
         const s = springPads[i];
         s.update();
@@ -830,6 +925,7 @@ function draw() {
     obstacles.forEach(o => o.draw());
     enemyNinjas.forEach(e => e.draw());
     crows.forEach(c => c.draw());
+    flyingShurikens.forEach(fs => fs.draw());
 
     player.draw();
 }
