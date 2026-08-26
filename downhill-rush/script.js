@@ -677,19 +677,21 @@ function updateSpawns() {
 
         // ★ 滑走1000mごとに段階的に間隔を縮小（難易度アップ＆ゆらぎ）
         if (distance < 500) {
-            spawnIntervalThreshold = Math.floor(600 + Math.random() * 500);
+            spawnIntervalThreshold = Math.floor(600 + Math.random() * 400);
         } else if (distance < 1000) {
-            spawnIntervalThreshold = Math.floor(400 + Math.random() * 600);
+            spawnIntervalThreshold = Math.floor(400 + Math.random() * 500);
         } else if (distance < 2000) {
-            spawnIntervalThreshold = Math.floor(300 + Math.random() * 600);
-        } else if (distance < 3000) {
             spawnIntervalThreshold = Math.floor(300 + Math.random() * 500);
+        } else if (distance < 3000) {
+            spawnIntervalThreshold = Math.floor(300 + Math.random() * 400);
         } else if (distance < 4000) {
-            spawnIntervalThreshold = Math.floor(200 + Math.random() * 500);
-        } else if (distance < 5000) {
             spawnIntervalThreshold = Math.floor(200 + Math.random() * 300);
+        } else if (distance < 5000) {
+            spawnIntervalThreshold = Math.floor(200 + Math.random() * 250);
+        } else if (distance < 7000) {
+            spawnIntervalThreshold = Math.floor(200 + Math.random() * 200);
         } else {
-            spawnIntervalThreshold = Math.floor(150 + Math.random() * 300);
+            spawnIntervalThreshold = Math.floor(150 + Math.random() * 150);
         }
 
         const spawnDist = 1100;
@@ -697,12 +699,12 @@ function updateSpawns() {
         // ★ 解禁距離ルール
         let candidates = [];
 
-        if (distance >= 50) candidates.push("snowman");
-        if (distance >= 500) candidates.push("hole");
-        if (distance >= 1500) candidates.push("tree_normal");
-        if (distance >= 2500) candidates.push("skier");
+        if (distance >= 30) candidates.push("snowman");
+        if (distance >= 200) candidates.push("hole");
+        if (distance >= 1400) candidates.push("tree_normal");
+        if (distance >= 2000) candidates.push("skier");
         if (distance >= 3500) candidates.push("tree_tall");
-        if (distance >= 4500) candidates.push("snowman_multi");
+        if (distance >= 4000) candidates.push("snowman_multi");
         if (distance >= 5500) candidates.push("hole_landslide");
         
         // 3000m以降ごく稀に「歩く雪だるま」を追加
