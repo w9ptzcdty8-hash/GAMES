@@ -352,7 +352,6 @@ function endGame() {
     const currentTotalScore = Math.floor(distance) + totalJumpDistance;
     const isNewHighScore = currentTotalScore > 0 && currentTotalScore > highScoreData.totalScore;
 
-    // style.display で確実に表示・非表示を切替
     if (isNewHighScore) {
         saveHighScore(currentTotalScore, Math.floor(distance), totalJumpDistance);
         sfx.playNewRecord();
@@ -603,14 +602,15 @@ function createSnowSpray(x, y, count = 10) {
     }
 }
 
-function createHoleObstacle(spawnDist, isLandslide = false) {
-    const holeWidth = 70 + Math.random() * 35;
+function createHoleObstacle(spawnDist, isLandslide = false, isHuge = false) {
+    const holeWidth = isHuge ? (160 + Math.random() * 60) : (70 + Math.random() * 35);
     return { 
         type: "hole", 
         dist: spawnDist, 
         w: holeWidth, 
         isLandslide: isLandslide, 
-        opened: !isLandslide, // 通常の穴は最初から開いている。地すべり穴は開いていない
+        isHuge: isHuge,
+        opened: !isLandslide, // 通常および大穴は最初から開いている
         collapseY: 0          // 地すべり崩落アニメーション用オフセット
     };
 }
@@ -681,9 +681,9 @@ function updateSpawns() {
         } else if (distance < 1000) {
             spawnIntervalThreshold = Math.floor(400 + Math.random() * 500);
         } else if (distance < 2000) {
-            spawnIntervalThreshold = Math.floor(300 + Math.random() * 500);
+            spawnIntervalThreshold = Math.floor(200 + Math.random() * 500);
         } else if (distance < 3000) {
-            spawnIntervalThreshold = Math.floor(300 + Math.random() * 400);
+            spawnIntervalThreshold = Math.floor(200 + Math.random() * 400);
         } else if (distance < 4000) {
             spawnIntervalThreshold = Math.floor(200 + Math.random() * 300);
         } else if (distance < 5000) {
@@ -706,6 +706,11 @@ function updateSpawns() {
         if (distance >= 3500) candidates.push("tree_tall");
         if (distance >= 4000) candidates.push("snowman_multi");
         if (distance >= 5500) candidates.push("hole_landslide");
+
+        // 6000m以降、ごく稀に「大穴（huge_hole）」を追加、デフォしきい値0.15
+        if (distance >= 3000 && Math.random() < 0.25) {
+            candidates.push("huge_hole");
+        }
         
         // 3000m以降ごく稀に「歩く雪だるま」を追加
         if (distance >= 3000 && Math.random() < 0.25) {
@@ -720,16 +725,18 @@ function updateSpawns() {
                 obstacles.push({ type: "snowman", dist: spawnDist, w: 38, h: 48, isWalking: false });
             } else if (chosen === "walking_snowman") {
                 // ゆっくり歩く雪だるま
-                obstacles.push({ type: "snowman", dist: spawnDist, w: 38, h: 48, isWalking: true, walkSpeed: 0.8 });
+                obstacles.push({ type: "snowman", dist: spawnDist, w: 38, h: 48, isWalking: true, walkSpeed: 1.0 });
             } else if (chosen === "snowman_multi") {
                 const snowCount = Math.random() < 0.6 ? 2 : 3;
                 for (let k = 0; k < snowCount; k++) {
                     obstacles.push({ type: "snowman", dist: spawnDist + (k * 42), w: 38, h: 48, isWalking: false });
                 }
             } else if (chosen === "hole") {
-                obstacles.push(createHoleObstacle(spawnDist, false));
+                obstacles.push(createHoleObstacle(spawnDist, false, false));
+            } else if (chosen === "huge_hole") {
+                obstacles.push(createHoleObstacle(spawnDist, false, true)); // 6000m以降のごく稀な大穴
             } else if (chosen === "hole_landslide") {
-                obstacles.push(createHoleObstacle(spawnDist, true));
+                obstacles.push(createHoleObstacle(spawnDist, true, false));
             } else if (chosen === "tree_normal") {
                 obstacles.push({ type: "tree", dist: spawnDist, w: 48, h: 75, isTall: false });
             } else if (chosen === "skier") {
@@ -826,7 +833,7 @@ function update(dtMs) {
                 }
             }
 
-            if (!player.isFallingInHole && obs.type === "hole" && obs.opened && obs.collapseY > 15) {
+            if (!player.isFallingInHole && obs.type === "hole" && obs.opened && (!obs.isLandslide || obs.collapseY > 15)) {
                 const holeLeft = ox - obs.w * 0.35;
                 const holeRight = ox + obs.w * 0.35;
 
