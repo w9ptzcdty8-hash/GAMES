@@ -707,8 +707,8 @@ function updateSpawns() {
         if (distance >= 4000) candidates.push("snowman_multi");
         if (distance >= 5500) candidates.push("hole_landslide");
 
-        // 6000m以降、ごく稀に「大穴（huge_hole）」を追加、デフォしきい値0.15
-        if (distance >= 3000 && Math.random() < 0.25) {
+        // 6000m以降、ごく稀に「大穴（huge_hole）」を追加
+        if (distance >= 6000 && Math.random() < 0.15) {
             candidates.push("huge_hole");
         }
         
@@ -783,12 +783,8 @@ function update(dtMs) {
             lastJumpDist = distance - player.jumpStartDist;
         }
 
-        // プレイ中のHUD（画面左下）には「直近または現在ジャンプ中」の数値のみを表示
         updateJumpBonusUI(Math.floor(lastJumpDist));
-
         updateSpawns();
-
-        const holes = obstacles.filter(o => o.type === "hole" && o.opened);
 
         for (let i = obstacles.length - 1; i >= 0; i--) {
             let obs = obstacles[i];
@@ -797,13 +793,17 @@ function update(dtMs) {
                 if (!obs.falling) {
                     obs.dist -= (speed - obs.relSpeed);
 
-                    for (let h of holes) {
-                        const holeLeft = h.dist - h.w / 2;
-                        const holeRight = h.dist + h.w / 2;
-                        if (obs.dist >= holeLeft && obs.dist <= holeRight) {
-                            obs.falling = true;
-                            sfx.playNpcFall();
-                            break;
+                    // 穴との衝突チェック（配列の再生成なし）
+                    for (let j = 0; j < obstacles.length; j++) {
+                        const h = obstacles[j];
+                        if (h.type === "hole" && h.opened) {
+                            const holeLeft = h.dist - h.w / 2;
+                            const holeRight = h.dist + h.w / 2;
+                            if (obs.dist >= holeLeft && obs.dist <= holeRight) {
+                                obs.falling = true;
+                                sfx.playNpcFall();
+                                break;
+                            }
                         }
                     }
                 } else {
@@ -811,7 +811,6 @@ function update(dtMs) {
                     obs.dist -= speed * 0.5;
                 }
             } else if (obs.type === "snowman" && obs.isWalking) {
-                // 歩く雪だるま：プレイヤーに向かってゆっくり進む
                 obs.dist -= (speed + obs.walkSpeed);
             } else {
                 obs.dist -= speed;
@@ -820,14 +819,13 @@ function update(dtMs) {
             const ox = obs.dist;
             const px = player.slopeX;
 
-            // 地すべり穴のアニメーション＆オープン判定（手前250pxで下へ崩落開始）
+            // 地すべり穴のアニメーション＆オープン判定
             if (obs.type === "hole" && obs.isLandslide) {
                 if (ox - px <= 250 && obs.collapseY === 0) {
                     obs.opened = true;
                     createSnowSpray(ox, getSlopeY(ox), 12);
                 }
 
-                // 崩落アニメーション更新
                 if (obs.opened && obs.collapseY < 80) {
                     obs.collapseY += 3.5;
                 }
@@ -965,7 +963,7 @@ function updateParticles() {
 
 
 // ========================================
-// 11. 描画処理
+// 11. 描画処理 (軽量化・最適化済み)
 // ========================================
 
 const skyGrad = ctx.createLinearGradient(0, 0, GAME_WIDTH, GAME_HEIGHT);
@@ -989,15 +987,15 @@ function render() {
     ctx.lineTo(0, GAME_HEIGHT);
     ctx.fill();
 
-    const sortedObs = [...obstacles].sort((a, b) => a.dist - b.dist);
-
     ctx.fillStyle = "#ffffff";
     ctx.strokeStyle = "#2b384a";
     ctx.lineWidth = 2;
 
     let currentX = -100;
 
-    sortedObs.forEach(obs => {
+    // 地面・穴・ジャンプ台の連続描画（ソート用新配列を作らず直接ループ処理）
+    for (let i = 0; i < obstacles.length; i++) {
+        const obs = obstacles[i];
         if (obs.type === "hole" && obs.opened) {
             const hLeft = obs.dist - obs.w / 2;
             const hRight = obs.dist + obs.w / 2;
@@ -1006,7 +1004,6 @@ function render() {
                 drawSlopeBlock(currentX, hLeft);
             }
 
-            // 地すべり崩落中の雪塊ブロックを下へ描画
             if (obs.isLandslide && obs.collapseY < 75) {
                 drawCollapsingBlock(hLeft, hRight, obs.collapseY);
             }
@@ -1023,7 +1020,7 @@ function render() {
             drawRampBlock(rStart, rEnd, obs.h);
             currentX = Math.max(currentX, rEnd);
         }
-    });
+    }
 
     if (currentX < GAME_WIDTH + 100) {
         drawSlopeBlock(currentX, GAME_WIDTH + 100);
@@ -1033,7 +1030,6 @@ function render() {
         const y1 = getSlopeY(x1);
         const y2 = getSlopeY(x2);
 
-        // 地面内部の塗りつぶし
         ctx.beginPath();
         ctx.moveTo(x1, y1);
         ctx.lineTo(x2, y2);
@@ -1042,7 +1038,6 @@ function render() {
         ctx.closePath();
         ctx.fill();
 
-        // 表面の斜面ラインのみ線を描画
         ctx.beginPath();
         ctx.moveTo(x1, y1);
         ctx.lineTo(x2, y2);
@@ -1054,7 +1049,6 @@ function render() {
         ctx.fillStyle = "#ffffff";
     }
 
-    // 地すべり崩落中の雪塊の描画
     function drawCollapsingBlock(x1, x2, offsetY) {
         const y1 = getSlopeY(x1) + offsetY;
         const y2 = getSlopeY(x2) + offsetY;
@@ -1079,7 +1073,6 @@ function render() {
         const y1 = getSlopeY(x1);
         const y2 = getSlopeY(x2);
 
-        // 面の塗りつぶし
         ctx.beginPath();
         ctx.moveTo(x1, y1);
 
@@ -1094,7 +1087,6 @@ function render() {
         ctx.closePath();
         ctx.fill();
 
-        // 輪郭線は曲線の斜面部分のみ
         ctx.beginPath();
         ctx.moveTo(x1, y1);
         ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x2, y2 - height);
@@ -1117,21 +1109,24 @@ function render() {
         }
     }
 
-    // 障害物描画
-    sortedObs.forEach(obs => {
-        if ((obs.type === "hole" && obs.opened) || obs.type === "ramp") return;
+    // 障害物描画（画面外スキップ機能付き）
+    const nowTime = Date.now();
+    for (let i = 0; i < obstacles.length; i++) {
+        const obs = obstacles[i];
+        if ((obs.type === "hole" && obs.opened) || obs.type === "ramp") continue;
 
         const ox = obs.dist;
+        // 画面の視界外（左右100px外）にある場合は描画スキップして軽量化
+        if (ox < -100 || ox > GAME_WIDTH + 100) continue;
+
         const oy = getSlopeY(ox) + (obs.falling ? obs.fallY : 0);
 
         ctx.save();
         ctx.translate(ox, oy);
 
-        // 歩く雪だるまの場合はヨチヨチ揺れを加える
-        const walkWobble = (obs.type === "snowman" && obs.isWalking) ? Math.sin(Date.now() * 0.015) * 0.18 : 0;
+        const walkWobble = (obs.type === "snowman" && obs.isWalking) ? Math.sin(nowTime * 0.015) * 0.18 : 0;
         ctx.rotate(SLOPE_ANGLE + (obs.falling ? 0.4 : walkWobble));
 
-        // 地すべり穴が開く前のうっすらとした境界（亀裂）ラインの描画
         if (obs.type === "hole" && obs.isLandslide && !obs.opened) {
             ctx.strokeStyle = "rgba(180, 50, 50, 0.45)";
             ctx.lineWidth = 2;
@@ -1144,10 +1139,8 @@ function render() {
         } else if (obs.type === "tree") {
             const trunkW = obs.isTall ? 10 : 8;
             const trunkH = obs.isTall ? 18 : 14;
-            // 幹
             ctx.fillStyle = "#5d4037";
             ctx.fillRect(-trunkW / 2, -trunkH, trunkW, trunkH);
-            // 葉
             ctx.fillStyle = obs.isTall ? "#1b5e20" : "#2e7d32";
             ctx.beginPath();
             ctx.moveTo(-obs.w / 2, -trunkH);
@@ -1155,22 +1148,19 @@ function render() {
             ctx.lineTo(obs.w / 2, -trunkH);
             ctx.fill();
         } else if (obs.type === "snowman") {
-            // 普通の雪だるまと同じ色・見た目
             ctx.fillStyle = "#e0f7fa";
             ctx.beginPath();
             ctx.arc(0, -14, 15, 0, Math.PI * 2);
             ctx.arc(0, -34, 10, 0, Math.PI * 2);
             ctx.fill();
 
-            // 鼻（歩く雪だるまは左向き、通常は右向き）
             ctx.fillStyle = "#ff6d00";
             if (obs.isWalking) {
-                ctx.fillRect(-10, -36, 8, 3); // 左向きの鼻
+                ctx.fillRect(-10, -36, 8, 3);
             } else {
-                ctx.fillRect(2, -36, 8, 3);  // 右向きの鼻
+                ctx.fillRect(2, -36, 8, 3);
             }
 
-            // 帽子（普通の雪だるまと同じ黒色）
             ctx.fillStyle = "#263238";
             ctx.fillRect(-8, -44, 16, 3);
             ctx.fillRect(-5, -52, 10, 8);
@@ -1196,13 +1186,14 @@ function render() {
         }
 
         ctx.restore();
-    });
+    }
 
-    // 雪パーティクル描画
-    particles.forEach(p => {
+    // 雪パーティクル描画（高速化）
+    for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
         ctx.fillStyle = `rgba(255, 255, 255, ${p.life})`;
         ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
-    });
+    }
 
     // プレイヤー描画
     const px = player.isFallingInHole ? player.fallX : player.slopeX;
@@ -1253,7 +1244,7 @@ function render() {
 
     ctx.restore();
 
-    // プレイ中テキスト (大ジャンプ中の操作案内・フィードバックテキストのみ)
+    // プレイ中テキスト
     if (state === STATE.PLAYING || state === STATE.BIG_JUMPING) {
         if (state === STATE.BIG_JUMPING) {
             ctx.fillStyle = "#ff6d00";
