@@ -260,6 +260,7 @@ h1 {
     padding-top: 14px;
     width: 100%;
     font-size: 11px;
+    text-decoration: underline;
     letter-spacing: 1px;
     color: rgba(255, 255, 255, 0.45);
     text-decoration: none;
