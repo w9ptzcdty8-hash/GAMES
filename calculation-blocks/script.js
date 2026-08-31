@@ -978,21 +978,22 @@
 
     setTimeout(() => {
       if (success) {
-        // 消去対象の(col, index)位置を記録
-        const erasedCoords = [];
-        picks.forEach((p) => {
-          const stack = state.columns[p.col];
-          const idx = stack.findIndex((b) => b.id === p.id);
-          if (idx !== -1) {
-            erasedCoords.push({ col: p.col, rowIdx: idx });
-          }
-        });
+        // 1. 消去実行前に現在の状態から隣接する「？」ブロックを特定
+        const transformTargets = findAdjacentQuestionsToTransform(picks);
 
-        // 1. 正解ブロックを配列から消去
+        // 2. 正解ブロックを消去
         picks.forEach((p) => removeBlockById(p.id, p.col));
 
-        // 2. 接するすべての「？」ブロックの対象IDと新数値を決定（データのみ）
-        const transformTargets = findAdjacentQuestionsToTransform(erasedCoords);
+        // 3. 特定した「？」ブロックの値を新しい数値へ変更
+        transformTargets.forEach(({ id, newVal }) => {
+          for (let c = 0; c < COLS; c++) {
+            const b = state.columns[c].find((item) => item.id === id);
+            if (b) {
+              b.value = newVal;
+              break;
+            }
+          }
+        });
 
         state.score += 10;
         state.correctCount++;
@@ -1004,7 +1005,7 @@
         state.selection = [];
         renderEquation();
 
-        // 3. 上のブロックが落下して位置が確定した後にすべての対象を白発光演出で開眼
+        // 4. 正解ブロック削除後に上のブロックが落下した位置で盤面を描画し、エフェクト適用
         renderLanded();
         triggerQuestionTransformEffects(transformTargets);
 
@@ -1040,8 +1041,8 @@
     return list.slice(0, n);
   }
 
-  // 接するすべての「？」ブロックのID取得および値の確定
-  function findAdjacentQuestionsToTransform(erasedCoords) {
+  // 消去実行前に正解選択ブロックのID・現在位置（col, index）をもとに隣接する「？」ブロックを正確に特定
+  function findAdjacentQuestionsToTransform(picks) {
     const adjacentQuestionIds = new Set();
     const dirs = [
       { dCol: 0, dRow: 1 },
@@ -1050,14 +1051,19 @@
       { dCol: -1, dRow: 0 },
     ];
 
-    erasedCoords.forEach((coord) => {
+    picks.forEach((p) => {
+      const col = p.col;
+      const stack = state.columns[col];
+      const rowIdx = stack.findIndex((b) => b.id === p.id);
+      if (rowIdx === -1) return;
+
       dirs.forEach((d) => {
-        const targetCol = coord.col + d.dCol;
-        const targetRow = coord.rowIdx + d.dRow;
+        const targetCol = col + d.dCol;
+        const targetRow = rowIdx + d.dRow;
         if (targetCol >= 0 && targetCol < COLS) {
-          const stack = state.columns[targetCol];
-          if (targetRow >= 0 && targetRow < stack.length) {
-            const neighbor = stack[targetRow];
+          const targetStack = state.columns[targetCol];
+          if (targetRow >= 0 && targetRow < targetStack.length) {
+            const neighbor = targetStack[targetRow];
             if (neighbor && neighbor.value === "?") {
               adjacentQuestionIds.add(neighbor.id);
             }
@@ -1068,21 +1074,12 @@
 
     const targets = [];
     adjacentQuestionIds.forEach((id) => {
-      for (let c = 0; c < COLS; c++) {
-        const stack = state.columns[c];
-        const target = stack.find((b) => b.id === id);
-        if (target) {
-          const newVal = randomValue();
-          target.value = newVal;
-          targets.push({ id, newVal });
-          // breakを置かず全箇所をチェック（1列内に複数存在する場合にもすべて追加）
-        }
-      }
+      targets.push({ id, newVal: randomValue() });
     });
     return targets;
   }
 
-  // 該当するすべての「？」ブロックを一括で0.5秒の白発光演出
+  // 落下完了後に該当ブロックに0.5秒の白発光アニメーションを付与
   function triggerQuestionTransformEffects(targets) {
     if (!targets || targets.length === 0) return;
 
